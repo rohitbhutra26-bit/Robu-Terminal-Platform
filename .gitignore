@@ -11,3 +11,9 @@ out/
 .env.local
 # os junk
 .DS_Store
+
+# python (bundled data-server)
+__pycache__/
+*.pyc
+data-server/*.cache
+data-server/cache/

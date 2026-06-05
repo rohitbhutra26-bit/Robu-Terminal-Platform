@@ -12,7 +12,7 @@ export PATH="/usr/local/bin:/opt/homebrew/bin:/Library/Frameworks/Python.framewo
 # ---- EDIT THESE PATHS IF YOUR FOLDERS DIFFER ----
 SHELL_DIR="$(pwd)"
 CHARTS_DIR="$HOME/Documents/Robu-Terminal-/core"
-DATA_DIR="$HOME/Documents/Claude/Projects/Robu Terminal/robu-data-server"
+DATA_DIR="$SHELL_DIR/data-server"   # bundled (deployed-latest) — travels with this repo
 VALU_DIR="$HOME/Documents/Claude/Projects/Robu Terminal/robu-valuation-next"
 AUTO_DIR="$HOME/Documents/Claude/Projects/Automated System for Trading"
 # --------------------------------------------------
