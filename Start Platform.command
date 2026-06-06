@@ -11,8 +11,18 @@ export PATH="/usr/local/bin:/opt/homebrew/bin:/Library/Frameworks/Python.framewo
 
 # ---- EDIT THESE PATHS IF YOUR FOLDERS DIFFER ----
 SHELL_DIR="$(pwd)"
-CHARTS_DIR="$HOME/Documents/Robu-Terminal-/core"   # Kite Charts engine
-DATA_DIR="$SHELL_DIR/data-server"                  # bundled Valuation data engine
+DATA_DIR="$SHELL_DIR/data-server"   # bundled Valuation data engine (travels with the repo)
+
+# Valuation & Automated are NATIVE in the shell now — no external folders needed.
+# Charts (Kite) is still a separate repo; find it across both laptops' layouts.
+CHARTS_DIR=""
+for c in \
+  "$HOME/Documents/Claude/Projects/Robu Terminal/Robu-Terminal-/core" \
+  "$HOME/Documents/Robu-Terminal-/core" \
+  "$HOME/Documents/Claude/Projects/Robu Terminal/Robu-Terminal-" \
+  "$HOME/Documents/Robu-Terminal-"; do
+  if [ -f "$c/app.py" ]; then CHARTS_DIR="$c"; break; fi
+done
 # --------------------------------------------------
 
 start_py () {  # name dir cmd...

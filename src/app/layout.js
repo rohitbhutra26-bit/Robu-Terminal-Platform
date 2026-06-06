@@ -1,5 +1,5 @@
 import "./globals.css";
-import Sidebar from "../components/Sidebar";
+import Shell from "../components/Shell";
 
 export const metadata = {
   title: "Robu Terminal",
@@ -18,10 +18,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="min-h-screen bg-terminal text-primary font-sans antialiased">
-        <div className="grid h-screen w-screen grid-cols-[248px_1fr]">
-          <Sidebar />
-          <main className="overflow-hidden">{children}</main>
-        </div>
+        <Shell>{children}</Shell>
       </body>
     </html>
   );
