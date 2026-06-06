@@ -7,7 +7,7 @@ export const TOOLS = [
     slug: "charts",
     name: "Charts",
     tagline: "Technical + F&O (Kite)",
-    url: "http://localhost:8010",
+    native: true, // rendered in-app at /charts (proxies the Kite engine on :8010)
     accent: "#5aa6ff",
     note: "Run a daily Kite login (Get Kite Token) for live data.",
   },
