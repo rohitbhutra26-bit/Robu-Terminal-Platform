@@ -84,7 +84,7 @@ export default function Dashboard() {
       {!loading && !error && (!data || data.empty) && tab !== "Accounts" && tab !== "Reconcile" && (
         <Panel title="No trades in this view yet">
           <p className="text-sm text-muted">Import a broker file to this account to discover your trading DNA.</p>
-          <Link href="/import" className="mt-3 inline-block rounded bg-accent px-4 py-2 text-sm font-medium text-white">
+          <Link href="/automated/import" className="mt-3 inline-block rounded bg-accent px-4 py-2 text-sm font-medium text-white">
             Import file →
           </Link>
         </Panel>

@@ -144,7 +144,7 @@ export default function ImportPage() {
             <p className="text-sm text-profit">
               Detected <b>{result.broker}</b> → <b>{result.account}</b>. Parsed {result.rowsParsed} rows →
               created <b>{result.tradesCreated}</b> round-trip trades.{" "}
-              <a href="/" className="text-accent underline">View dashboard →</a>
+              <a href="/automated" className="text-accent underline">View dashboard →</a>
             </p>
           )}
         </Panel>
