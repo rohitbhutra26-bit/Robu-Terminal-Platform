@@ -51,6 +51,8 @@ npm install --no-audit --no-fund --loglevel=error
 echo "  setting up local database (Automated System) ..."
 npx prisma db push --skip-generate >> "$SHELL_DIR/.logs/db.log" 2>&1 \
   || npx prisma db push >> "$SHELL_DIR/.logs/db.log" 2>&1
+# seed the 6 accounts (idempotent upsert) so the import screen always has accounts
+npm run db:seed >> "$SHELL_DIR/.logs/db.log" 2>&1 || true
 echo "  starting terminal on :3000 ..."
 ( sleep 6 && open "http://localhost:3000" ) &
 echo ""
