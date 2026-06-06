@@ -1,0 +1,111 @@
+/* ============================================================
+   ROBU DESIGN SYSTEM — Token Layer
+   Source of truth: github.com/rohitbhutra26-bit/robu-design-system
+   Update: curl -O .../robu-tokens.css  (into src/app/)
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --color-terminal: 237 233 227;   /* #EDE9E3  page / app bg */
+  --color-card:     252 250 247;   /* #FCFAF7  elevated surface */
+  --color-border:   180 174 167;   /* warm mid-gray — fill + border */
+
+  /* ── Brand ────────────────────────────────────────────── */
+  --color-gold:     196 81 26;     /* #C4511A  terracotta accent */
+  --color-accent:   196 81 26;
+
+  /* ── Semantic ─────────────────────────────────────────── */
+  --color-gain:     22 163 74;     /* #16A34A */
+  --color-loss:     220 38 38;     /* #DC2626 */
+  --color-warning:  180 83 9;      /* #B45309 */
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-primary:  28 25 23;      /* #1C1917  headings, body */
+  --color-muted:    120 113 108;   /* #78716C  secondary text */
+
+  /* ── Alpha borders (direct rgba, theme-aware) ─────────── */
+  --border-subtle:  rgba(28, 25, 23, 0.10);
+  --border-strong:  rgba(28, 25, 23, 0.18);
+  --shadow-color:   rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  /* ── Surfaces ─────────────────────────────────────────── */
+  --color-terminal: 31 31 30;      /* #1F1F1E  page / app bg */
+  --color-card:     44 44 42;      /* #2C2C2A  elevated surface */
+  --color-border:   70 68 65;      /* warm dark gray — fill + border */
+
+  /* ── Brand ────────────────────────────────────────────── */
+  --color-gold:     229 110 58;    /* #E56E3A  warm terracotta in dark */
+  --color-accent:   229 110 58;
+
+  /* ── Semantic ─────────────────────────────────────────── */
+  --color-gain:     52 211 153;    /* #34D399 */
+  --color-loss:     248 113 113;   /* #F87171 */
+  --color-warning:  251 191 36;    /* #FBBF24 */
+
+  /* ── Text ─────────────────────────────────────────────── */
+  --color-primary:  248 248 246;   /* #F8F8F6  headings, body */
+  --color-muted:    195 194 183;   /* #C3C2B7  secondary text */
+
+  /* ── Alpha borders ────────────────────────────────────── */
+  --border-subtle:  rgba(226, 225, 218, 0.12);
+  --border-strong:  rgba(226, 225, 218, 0.22);
+  --shadow-color:   rgba(0, 0, 0, 0.35);
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+:root {
+  --font-sans:  'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
+  --font-mono:  'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* ── Border radius scale ────────────────────────────────── */
+:root {
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-full: 9999px;
+}
+
+/* ── Shadow scale ───────────────────────────────────────── */
+:root {
+  --shadow-sm: 0 1px 2px 0 var(--shadow-color);
+  --shadow-md: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -2px var(--shadow-color);
+  --shadow-lg: 0 10px 15px -3px var(--shadow-color), 0 4px 6px -4px var(--shadow-color);
+}
+
+/* ── Motion ─────────────────────────────────────────────── */
+:root {
+  --ease-cds:    cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: linear(0 0%,0.2459 7.14%,0.6526 14.29%,0.9468 21.43%,
+                        1.0764 28.57%,1.0915 35.71%,1.0585 42.86%,
+                        1.0164 50%,0.9918 57.14%,0.9895 64.29%,
+                        1.0012 71.43%,1.0063 78.57%,1.0016 85.71%,
+                        0.9996 92.86%,1 100%);
+  --dur-micro:    35ms;
+  --dur-fast:     60ms;
+  --dur-standard: 150ms;
+  --dur-slow:     300ms;
+  --dur-spring:   450ms;
+}
+
+/* ── Convenience: semantic CSS variables (non-RGB) ──────── */
+:root {
+  --bg:          rgb(var(--color-terminal));
+  --surface:     rgb(var(--color-card));
+  --text:        rgb(var(--color-primary));
+  --text-muted:  rgb(var(--color-muted));
+  --accent:      rgb(var(--color-gold));
+  --gain:        rgb(var(--color-gain));
+  --loss:        rgb(var(--color-loss));
+}
+
+/* ── Platform extension: card2 (Automated module raised inputs) ── */
+:root, [data-theme="light"] { --color-card2: 243 239 233; }
+[data-theme="dark"]         { --color-card2: 56 56 54; }
