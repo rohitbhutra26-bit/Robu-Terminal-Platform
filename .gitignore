@@ -17,3 +17,8 @@ __pycache__/
 *.pyc
 data-server/*.cache
 data-server/cache/
+
+# local SQLite database (Automated System) — per machine, never synced
+prisma/dev.db
+prisma/*.db
+prisma/*.db-journal

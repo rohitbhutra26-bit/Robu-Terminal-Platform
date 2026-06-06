@@ -7,6 +7,7 @@
 :root {
   --color-terminal: 15 18 27;      /* #0f121b — deep rich bg (darker than TV) */
   --color-card:     22 27 42;      /* #161b2a — card surface with blue tint */
+  --color-card2:    28 34 52;      /* #1c2234 — raised inputs (Automated) */
   --color-border:   42 49 68;      /* #2a3144 — visible but subtle border */
   --color-gold:     77 142 255;    /* #4d8eff — bright readable blue accent */
   --color-gain:     0 201 167;     /* #00c9a7 — vivid teal-green (pops!) */
@@ -24,6 +25,7 @@
 [data-theme="light"] {
   --color-terminal: 241 243 249;   /* #f1f3f9 — clean white-blue bg */
   --color-card:     255 255 255;   /* #ffffff */
+  --color-card2:    246 248 252;   /* #f6f8fc — raised inputs (Automated) */
   --color-border:   213 218 232;   /* #d5dae8 — visible light border */
   --color-gold:     41 98 255;     /* #2962ff — strong blue in light */
   --color-gain:     0 148 122;     /* #00947a — darker vivid teal */

@@ -1,0 +1,94 @@
+// Automated System (Trader DNA) — data model.
+// Converted to SQLite for zero-install local use: Prisma enums aren't supported
+// on SQLite, so the former enums (Broker, OptionType, AssetClass,
+// InstrumentClass, CostSource) are stored as plain strings with the same values.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// One trading account. (e.g. 4 Zerodha, 1 Kotak, 1 HDFC.)
+model Account {
+  id            String   @id @default(cuid())
+  label         String
+  broker        String   // "ZERODHA" | "KOTAK" | "HDFC"
+  accountNumber String?
+  includeInCombined Boolean @default(true)
+  createdAt     DateTime @default(now())
+
+  trades        Trade[]
+  importBatches ImportBatch[]
+
+  @@unique([broker, accountNumber])
+}
+
+model Trade {
+  id            String   @id @default(cuid())
+  externalId    String?
+
+  account       Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId     String
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  importBatchId String?
+  broker        String   // denormalized
+
+  rawSymbol     String
+  symbol        String
+  instrument    String   // "NIFTY" | "BANKNIFTY" | ... | "STOCK" | "OTHER"
+  asset         String   @default("OPT")  // "OPT" | "FUT"
+  strike        Float?
+  optionType    String?  // "CE" | "PE"
+
+  entryTime     DateTime
+  exitTime      DateTime?
+  expiryDate    DateTime?
+
+  premiumSold   Float    @default(0)
+  premiumBought Float    @default(0)
+  quantity      Int      @default(0)
+  isShort       Boolean  @default(true)
+
+  pnl           Float    @default(0)
+  charges       Float    @default(0)
+  costSource    String   @default("NONE")  // "REAL" | "ESTIMATED" | "NONE"
+
+  underlyingAtEntry Float?
+  strikeDistance    Float?
+  approxDelta       Float?
+  holdingMinutes    Int?
+  isExpiryDay       Boolean @default(false)
+  isReentry         Boolean @default(false)
+
+  createdAt     DateTime @default(now())
+
+  @@index([accountId])
+  @@index([symbol])
+  @@index([entryTime])
+  @@index([instrument])
+}
+
+model ImportBatch {
+  id         String   @id @default(cuid())
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId  String
+  broker     String
+  fileName   String
+  rowCount   Int
+  tradeCount Int
+  createdAt  DateTime @default(now())
+
+  rawBuyValue  Float @default(0)
+  rawSellValue Float @default(0)
+  rawBuyQty    Int   @default(0)
+  rawSellQty   Int   @default(0)
+  rawCharges   Float @default(0)
+
+  trades     Trade[]
+
+  @@index([accountId])
+}

@@ -10,6 +10,7 @@ module.exports = {
       colors: {
         terminal: "rgb(var(--color-terminal) / <alpha-value>)",
         card: "rgb(var(--color-card) / <alpha-value>)",
+        card2: "rgb(var(--color-card2) / <alpha-value>)",
         border: "rgb(var(--color-border) / <alpha-value>)",
         gold: "rgb(var(--color-gold) / <alpha-value>)",
         gain: "rgb(var(--color-gain) / <alpha-value>)",
@@ -18,6 +19,13 @@ module.exports = {
         muted: "rgb(var(--color-muted) / <alpha-value>)",
         accent: "rgb(var(--color-accent) / <alpha-value>)",
         warning: "rgb(var(--color-warning) / <alpha-value>)",
+        // Back-compat aliases used by the Automated module:
+        ink: "rgb(var(--color-terminal) / <alpha-value>)",
+        panel: "rgb(var(--color-card) / <alpha-value>)",
+        panel2: "rgb(var(--color-card2) / <alpha-value>)",
+        text: "rgb(var(--color-primary) / <alpha-value>)",
+        profit: "rgb(var(--color-gain) / <alpha-value>)",
+        warn: "rgb(var(--color-warning) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["DM Sans", "Inter", "system-ui", "-apple-system", "sans-serif"],

@@ -23,9 +23,9 @@ export const TOOLS = [
     slug: "automated",
     name: "Automated System",
     tagline: "Trader DNA analyzer",
-    url: "http://localhost:3001",
+    native: true, // rendered in-app at /automated (SQLite-backed)
     accent: "#b18cff",
-    note: "Next.js + database app.",
+    note: "Import trades (CSV/xlsx) to populate the local database.",
   },
 ];
 
