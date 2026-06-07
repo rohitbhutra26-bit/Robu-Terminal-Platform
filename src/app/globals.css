@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Platform token extension — card2 (Automated module raised inputs).
+   Kept here, not in robu-tokens.css, so re-fetching the canonical tokens is safe. */
+:root, [data-theme="light"] { --color-card2: 243 239 233; }
+[data-theme="dark"]         { --color-card2: 56 56 54; }
+
 /* ── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
