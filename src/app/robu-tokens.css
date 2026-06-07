@@ -105,7 +105,3 @@
   --gain:        rgb(var(--color-gain));
   --loss:        rgb(var(--color-loss));
 }
-
-/* ── Platform extension: card2 (Automated module raised inputs) ── */
-:root, [data-theme="light"] { --color-card2: 243 239 233; }
-[data-theme="dark"]         { --color-card2: 56 56 54; }
