@@ -45,6 +45,10 @@ start_py "charts" "$CHARTS_DIR" python3 -m uvicorn app:app --port 8010
 # 2) Valuation data server (FastAPI -> port 8000) — feeds the native Valuation tab.
 start_py "data-server" "$DATA_DIR" bash start.sh
 
+# Keep the Valuation module current from its repo (best-effort; skips if offline).
+echo "  syncing Valuation to latest ..."
+bash "$SHELL_DIR/Update Valuation.command" >> "$SHELL_DIR/.logs/valuation-sync.log" 2>&1 || true
+
 # 3) Shell + native modules (Next -> port 3000)
 echo "  preparing shell (installing deps if needed) ..."
 npm install --no-audit --no-fund --loglevel=error
