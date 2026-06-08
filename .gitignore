@@ -30,3 +30,4 @@ data-server/__pycache__/
 prisma/dev.db
 .env
 .env.local
+data-server/.env

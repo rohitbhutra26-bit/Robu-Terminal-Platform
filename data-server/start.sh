@@ -1,6 +1,10 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
+# Load local secrets (Screener.in login etc.) if a .env file exists.
+# The app reads os.environ directly, so we export these before launch.
+if [ -f .env ]; then set -a; . ./.env; set +a; fi
+
 # This server's code needs Python 3.10+ syntax; its pinned libraries ship
 # prebuilt wheels through ~3.12. Pick the newest suitable Python available.
 PY=""

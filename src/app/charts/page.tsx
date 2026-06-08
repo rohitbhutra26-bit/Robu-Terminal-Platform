@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { KeyRound, RefreshCw, LineChart, Search } from "lucide-react";
 
 const QUICK = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "NIFTY", "BANKNIFTY", "TATAMOTORS", "SBIN", "BAJFINANCE"];
 
@@ -20,12 +21,18 @@ function dirBg(direction?: string) {
   return "border-border text-muted";
 }
 
+// Detect a "needs Kite login" error vs a genuine not-found / other error.
+function isLoginError(msg: string) {
+  return /kite|token|log ?in|session|expired|unauthor/i.test(msg || "");
+}
+
 export default function ChartsPage() {
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [data, setData] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [engineDown, setEngineDown] = useState(false);
+  const [needLogin, setNeedLogin] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const tRef = useRef<any>(null);
 
@@ -45,19 +52,25 @@ export default function ChartsPage() {
 
   async function analyze(symbol: string) {
     if (!symbol) return;
-    setLoading(true); setEngineDown(false); setNotFound(null); setSuggestions([]); setQ(symbol);
+    setLoading(true); setEngineDown(false); setNeedLogin(null); setNotFound(null); setSuggestions([]); setQ(symbol);
     try {
       const r = await fetch(`/api/charts/analyze?symbol=${encodeURIComponent(symbol)}`);
       if (r.status === 503) { setEngineDown(true); setData(null); return; }
       const j = await r.json();
-      if (j.error) { setNotFound(j.error); setData(null); }
-      else setData(j);
+      if (j.error) {
+        if (isLoginError(j.error)) { setNeedLogin(symbol); setData(null); }
+        else { setNotFound(j.error); setData(null); }
+      } else {
+        setData(j);
+      }
     } catch {
       setEngineDown(true); setData(null);
     } finally {
       setLoading(false);
     }
   }
+
+  const idle = !loading && !engineDown && !needLogin && !notFound && !data;
 
   return (
     <div className="h-full overflow-y-auto px-8 py-8">
@@ -66,12 +79,13 @@ export default function ChartsPage() {
 
       {/* Search */}
       <div className="relative mt-5 max-w-xl">
+        <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value.toUpperCase())}
           onKeyDown={(e) => { if (e.key === "Enter") analyze(q.trim()); }}
           placeholder="Search a stock or index — RELIANCE, NIFTY, BANKNIFTY…"
-          className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-accent"
+          className="w-full rounded-xl border border-border bg-card pl-10 pr-4 py-3 text-sm outline-none focus:border-accent"
         />
         {suggestions.length > 0 && (
           <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card shadow-pop">
@@ -97,7 +111,21 @@ export default function ChartsPage() {
       </div>
 
       {/* States */}
-      {loading && <p className="mt-8 text-muted">Analysing {q}…</p>}
+      {loading && (
+        <div className="ds-card mt-8 flex max-w-xl items-center gap-3 p-5">
+          <RefreshCw size={16} className="animate-spin text-accent" />
+          <span className="text-sm text-muted">Analysing <b className="text-primary">{q}</b> — reading structure, levels &amp; F&amp;O…</span>
+        </div>
+      )}
+
+      {/* Friendly empty state (so the landing isn't bare) */}
+      {idle && (
+        <div className="mt-8 grid max-w-3xl gap-3 sm:grid-cols-3">
+          <EmptyHint icon={<LineChart size={16} />} title="Type or pick a symbol" body="Any NSE stock or index — RELIANCE, NIFTY, BANKNIFTY." />
+          <EmptyHint icon={<KeyRound size={16} />} title="Live data via Kite" body="Charts use your Zerodha Kite login (refreshed once a day)." />
+          <EmptyHint icon={<RefreshCw size={16} />} title="Full read in one tap" body="Entry, stop, targets, setup score, levels & an AI read." />
+        </div>
+      )}
 
       {engineDown && !loading && (
         <div className="ds-card mt-8 max-w-xl p-5">
@@ -110,6 +138,35 @@ export default function ChartsPage() {
         </div>
       )}
 
+      {/* Dedicated "needs Kite login" state — designed, with retry */}
+      {needLogin && !loading && (
+        <div className="ds-card mt-8 max-w-xl p-6">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/10 text-accent">
+              <KeyRound size={18} />
+            </span>
+            <div>
+              <div className="text-base font-semibold">Connect to Kite to load {needLogin}</div>
+              <div className="text-xs text-muted">Charts need a live Zerodha session</div>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-muted">
+            Zerodha expires the Kite login every morning for security, so charts need a quick daily sign-in (about 20 seconds).
+          </p>
+          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-muted">
+            <li>Double-click <code className="rounded bg-terminal/60 px-1.5 py-0.5 text-primary">Get Kite Token</code> in your Robu Terminal folder.</li>
+            <li>Log in with your Zerodha ID + PIN.</li>
+            <li>Come back here and hit <span className="text-primary">Retry</span>.</li>
+          </ol>
+          <button
+            onClick={() => analyze(needLogin)}
+            className="ds-btn-primary mt-5 inline-flex items-center gap-2"
+          >
+            <RefreshCw size={15} /> Retry {needLogin}
+          </button>
+        </div>
+      )}
+
       {notFound && !loading && (
         <div className="ds-card mt-8 max-w-xl p-5 text-sm text-muted">
           Couldn’t analyse <b className="text-primary">{q}</b>: {notFound}
@@ -117,6 +174,15 @@ export default function ChartsPage() {
       )}
 
       {data && !loading && <Result d={data} />}
+    </div>
+  );
+}
+
+function EmptyHint({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-card/40 p-4">
+      <div className="flex items-center gap-2 text-accent">{icon}<span className="text-sm font-semibold text-primary">{title}</span></div>
+      <p className="mt-1.5 text-xs text-muted">{body}</p>
     </div>
   );
 }
