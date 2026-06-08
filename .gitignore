@@ -23,3 +23,10 @@ data-server/cache/
 prisma/dev.db
 prisma/*.db
 prisma/*.db-journal
+
+# local build/runtime (not for git)
+data-server/.venv/
+data-server/__pycache__/
+prisma/dev.db
+.env
+.env.local
