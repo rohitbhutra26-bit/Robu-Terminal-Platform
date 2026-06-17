@@ -36,7 +36,7 @@ export default function AnnouncementsFeed({ company }: { company: Company }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary">NSE Announcements</h3>
+        <h3 className="text-sm font-semibold text-primary">Corporate Actions & Announcements</h3>
         <span className="text-[10px] text-muted border border-border px-1.5 py-0.5 rounded">Live</span>
       </div>
       <div className="space-y-2">
@@ -45,10 +45,10 @@ export default function AnnouncementsFeed({ company }: { company: Company }) {
             className="block rounded-lg border border-border hover:border-accent/40 hover:bg-accent/3 transition-all p-3">
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs text-primary leading-snug line-clamp-2">{item.subject}</p>
-              <span className="text-[9px] text-muted font-mono flex-shrink-0 mt-0.5">{item.date}</span>
+              <span className="text-[10px] text-muted font-mono flex-shrink-0 mt-0.5">{item.date}</span>
             </div>
             {item.category && (
-              <span className="text-[9px] text-muted mt-1 inline-block">{item.category}</span>
+              <span className="text-[10px] text-muted mt-1 inline-block">{item.category}</span>
             )}
           </a>
         ))}

@@ -1,5 +1,5 @@
 /**
- * icons.tsx — single source of truth for all icons in Robu Terminal.
+ * icons.tsx — single source of truth for all icons in Robu.
  * Every component imports from here, never directly from lucide-react.
  * This keeps the icon family consistent and makes swaps trivial.
  *
@@ -18,6 +18,8 @@ export {
   ChevronsDown,
   X,
   Menu,
+  Radar,
+  Compass,
 
   // ── Valuation & Finance ───────────────────────────────────────────────────
   Calculator,
@@ -33,6 +35,8 @@ export {
   Scale,
   DollarSign,
   PieChart,
+  Tag,
+  Gauge,
 
   // ── Analysis & AI ─────────────────────────────────────────────────────────
   Sparkles,

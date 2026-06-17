@@ -9,6 +9,9 @@ export interface FinancialYear {
   revenueGrowth: number;
   shares: number;
   ocf?: number;        // Operating Cash Flow — from Screener.in (not available in Yahoo)
+  interest?: number;   // Interest expense (₹ Cr) — for coverage ratio
+  borrowings?: number; // Total debt from balance sheet (₹ Cr)
+  equity?: number;     // Equity capital + reserves (₹ Cr)
   source?: string;     // 'screener' | 'yahoo' — which data source this year came from
 }
 
@@ -17,6 +20,7 @@ export interface Company {
   name: string;
   sector: string;
   industry?: string;
+  exchange?: string;   // 'NSE' | 'BSE' — resolved by the data server
   currentPrice: number;
   previousClose?: number;
   marketCap: number;
@@ -25,6 +29,8 @@ export interface Company {
   pb: number;
   roe: number;
   roa?: number;
+  roce?: number;
+  bookValue?: number;   // book value per share (₹); negative ⇒ negative net worth
   debtToEquity: number;
   currentRatio?: number;
   dividendYield: number;
@@ -38,6 +44,11 @@ export interface Company {
   shares?: number;
   revenueGrowth?: number;
   earningsGrowth?: number;
+  pledgedPct?: number;   // Promoter shares pledged % — red-flag input
+  description?: string;  // Business summary ('what it does') — Yahoo assetProfile
+  ceo?: string;          // Current CEO / MD — Yahoo companyOfficers
+  website?: string;
+  employees?: number;
   financials?: FinancialYear[];
 }
 
@@ -94,4 +105,7 @@ export interface SearchResult {
   exchange?: string;
   currentPrice?: number;
   changePercent?: number;
+  /** How the backend matched this row: exact | starts | contains | fuzzy.
+   *  'fuzzy' rows are typo-tolerant suggestions ("did you mean…"). */
+  match?: 'exact' | 'starts' | 'contains' | 'fuzzy';
 }

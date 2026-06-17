@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { getWatchlist, removeFromWatchlist, WatchlistEntry } from '@/lib/watchlist';
-import { Bookmark, X, Clock, TrendingUp, TrendingDown, RefreshCw, AlertCircle } from '@/lib/icons';
+import { Bookmark, X, Clock, RefreshCw, AlertCircle } from '@/lib/icons';
 
 interface WatchlistViewProps {
   onSelectSymbol: (symbol: string) => void;
@@ -11,6 +11,7 @@ interface WatchlistViewProps {
 
 interface LiveQuote {
   price: number;
+  changePct: number | null;
   pe: number | null;
   marketCap: number;
   fairValue: number | null;
@@ -57,34 +58,41 @@ export default function WatchlistView({ onSelectSymbol, currentSymbol }: Watchli
     setQuotes(prev => {
       const next = { ...prev };
       for (const sym of symbols) {
-        next[sym] = { price: 0, pe: null, marketCap: 0, fairValue: null, upside: null, loading: true, error: false };
+        next[sym] = { price: 0, changePct: null, pe: null, marketCap: 0, fairValue: null, upside: null, loading: true, error: false };
       }
       return next;
     });
 
-    // Fetch all in parallel — company-v2 gives price, PE, market cap
+    // Fetch in parallel — /price gives the LIVE quote + day change (near real-time),
+    // company-v2 supplies PE + market cap. Price never comes from a stale payload.
     await Promise.allSettled(
       symbols.map(async (sym) => {
         try {
-          const res = await fetch(`/api/company-v2/${sym}`);
-          if (!res.ok) throw new Error('failed');
-          const d = await res.json();
+          const [priceRes, compRes] = await Promise.allSettled([
+            fetch(`/api/price/${sym}`, { cache: 'no-store' }),
+            fetch(`/api/company-v2/${sym}`),
+          ]);
+          const pj = priceRes.status === 'fulfilled' && priceRes.value.ok ? await priceRes.value.json() : null;
+          const d  = compRes.status  === 'fulfilled' && compRes.value.ok  ? await compRes.value.json()  : null;
+          if (!pj && !d) throw new Error('failed');
+          const price = parseFloat(pj?.price ?? d?.currentPrice ?? 0);
           setQuotes(prev => ({
             ...prev,
             [sym]: {
-              price:     parseFloat(d.currentPrice || 0),
-              pe:        d.pe ? parseFloat(d.pe) : null,
-              marketCap: parseFloat(d.marketCap || 0),
+              price,
+              changePct: pj?.changePct != null ? parseFloat(pj.changePct) : (d?.changePercent != null ? parseFloat(d.changePercent) : null),
+              pe:        d?.pe ? parseFloat(d.pe) : null,
+              marketCap: parseFloat(d?.marketCap || 0),
               fairValue: null,
               upside:    null,
               loading:   false,
-              error:     false,
+              error:     price <= 0,
             },
           }));
         } catch {
           setQuotes(prev => ({
             ...prev,
-            [sym]: { price: 0, pe: null, marketCap: 0, fairValue: null, upside: null, loading: false, error: true },
+            [sym]: { price: 0, changePct: null, pe: null, marketCap: 0, fairValue: null, upside: null, loading: false, error: true },
           }));
         }
       })
@@ -98,11 +106,6 @@ export default function WatchlistView({ onSelectSymbol, currentSymbol }: Watchli
       fetchQuotes(list.map(e => e.symbol));
     }
   }, [list, fetchQuotes]);
-
-  const gainers = list.filter(e => {
-    const q = quotes[e.symbol];
-    return q && !q.loading && !q.error && q.price > 0;
-  }).length;
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
@@ -148,9 +151,9 @@ export default function WatchlistView({ onSelectSymbol, currentSymbol }: Watchli
           <div className="w-14 h-14 rounded-2xl bg-border/60 flex items-center justify-center mx-auto mb-4">
             <Bookmark size={22} className="text-muted/40" />
           </div>
-          <p className="text-sm font-semibold text-primary mb-1">Nothing saved yet</p>
+          <p className="text-sm font-semibold text-primary mb-1">Your watchlist is empty</p>
           <p className="text-xs text-muted max-w-xs mx-auto leading-relaxed">
-            Search any stock and tap the bookmark icon on its profile to save it here.
+            A watchlist is stocks you&apos;re <span className="text-primary font-medium">keeping an eye on</span> — you don&apos;t own them. Open any stock and tap <span className="text-gold font-semibold">Watch</span> at the top to save it here.
           </p>
         </div>
       )}
@@ -207,6 +210,11 @@ export default function WatchlistView({ onSelectSymbol, currentSymbol }: Watchli
                             <p className="text-sm font-bold font-mono text-primary">
                               ₹{q.price.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </p>
+                            {q.changePct != null && q.changePct !== 0 && (
+                              <p className={`text-[10px] font-mono font-semibold mt-0.5 ${q.changePct >= 0 ? 'text-gain' : 'text-loss'}`}>
+                                {q.changePct >= 0 ? '▲' : '▼'} {Math.abs(q.changePct).toFixed(2)}%
+                              </p>
+                            )}
                             {q.pe && (
                               <p className="text-[10px] font-mono text-muted mt-0.5">
                                 PE {q.pe.toFixed(1)}x

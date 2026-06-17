@@ -96,11 +96,11 @@ function CompareRow({
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[10px] font-mono text-primary">{format(company)}</span>
-          <span className="text-[9px] text-muted/50">vs sector</span>
+          <span className="text-[10px] text-muted/50">vs sector</span>
           <span className="text-[10px] font-mono text-muted">{format(industry)}</span>
         </div>
       </div>
-      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${badge.cls}`}>
+      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${badge.cls}`}>
         {badge.text}
       </span>
     </div>
@@ -143,7 +143,7 @@ export default function IndustryBenchmarks({ company, financials }: IndustryBenc
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-      className="bg-card border border-border rounded-xl p-4"
+      className="bg-card border border-border rounded-3xl p-5 sm:p-6"
     >
       <div className="flex items-center justify-between mb-1 gap-2">
         <div className="flex items-start gap-2">

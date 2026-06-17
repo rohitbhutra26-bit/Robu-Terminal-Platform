@@ -111,7 +111,7 @@ export default function ScenarioBuilder({ company, financials }: ScenarioBuilder
   const latest = financials[financials.length - 1];
   const baseGrowth = Math.round(Math.min(Math.max(latest?.revenueGrowth ?? 12, 2), 30));
   const baseMargin = Math.round((latest?.netMargin ?? 12) * 10) / 10;
-  const basePE     = Math.round(company.pe || 20);
+  const basePE     = company.pe && company.pe > 0 ? Math.round(company.pe) : 20;
 
   const [scenarios, setScenarios] = useState<Scenario[]>([
     { name: 'Bear', color: 'text-loss',  bgColor: 'bg-loss/3',  borderColor: 'border-loss/20',
@@ -124,6 +124,8 @@ export default function ScenarioBuilder({ company, financials }: ScenarioBuilder
       exitPE: basePE + 10, netMargin: baseMargin + 4 },
   ]);
 
+  const [active, setActive] = useState(1); // Base by default
+
   const updateScenario = useCallback((idx: number, key: keyof Scenario, val: number) => {
     setScenarios(prev => prev.map((s, i) => i === idx ? { ...s, [key]: val } : s));
   }, []);
@@ -131,17 +133,32 @@ export default function ScenarioBuilder({ company, financials }: ScenarioBuilder
   if (!financials.length) return null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-primary">Scenario Builder</h3>
         <p className="text-[11px] text-muted mt-0.5">Adjust assumptions per scenario — see fair value move in real time</p>
       </div>
 
-      {/* Responsive: stack on mobile, 3 cols on desktop */}
+      {/* Mobile: Bear/Base/Bull tabs (one at a time, no endless scroll) · Desktop: 3 columns */}
+      <div className="flex gap-1.5 sm:hidden">
+        {scenarios.map((s, i) => (
+          <button
+            key={s.name}
+            onClick={() => setActive(i)}
+            className={`flex-1 px-2 py-2 rounded-lg text-sm font-bold transition-all ${
+              active === i ? `${s.color} bg-card border ${s.borderColor} shadow-sm` : 'text-muted border border-transparent'
+            }`}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {scenarios.map((s, i) => (
-          <ScenarioColumn key={s.name} scenario={s} company={company} financials={financials}
-            onChange={(k, v) => updateScenario(i, k, v)} />
+          <div key={s.name} className={i === active ? '' : 'hidden sm:block'}>
+            <ScenarioColumn scenario={s} company={company} financials={financials}
+              onChange={(k, v) => updateScenario(i, k, v)} />
+          </div>
         ))}
       </div>
 

@@ -29,7 +29,7 @@ function score(p: Peer): number {
 
 function Badge({ text, color }: { text: string; color: string }) {
   return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border tracking-wide ${color}`}>
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border tracking-wide ${color}`}>
       {text}
     </span>
   );
@@ -56,7 +56,7 @@ export default function SectorAlternatives({ company, onSelectSymbol }: SectorAl
   }, [company.symbol]);
 
   if (loading) return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
       <p className="text-xs text-muted animate-pulse">Finding better stocks in sector...</p>
     </div>
   );
@@ -70,7 +70,7 @@ export default function SectorAlternatives({ company, onSelectSymbol }: SectorAl
     marketCap: company.marketCap, pe: company.pe, pb: company.pb, roe: company.roe, isSelf: true });
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-primary">Better in Sector</h3>
@@ -78,7 +78,7 @@ export default function SectorAlternatives({ company, onSelectSymbol }: SectorAl
         </div>
         <div className="text-right">
           <p className="text-[10px] text-muted">Your stock score</p>
-          <p className={`text-sm font-bold font-mono ${selfScore >= 60 ? 'text-gain' : selfScore >= 40 ? 'text-gold' : 'text-loss'}`}>
+          <p className={`text-sm font-bold font-mono ${selfScore >= 60 ? 'text-gain' : selfScore >= 40 ? 'text-warning' : 'text-loss'}`}>
             {selfScore}/100
           </p>
         </div>
@@ -110,10 +110,10 @@ export default function SectorAlternatives({ company, onSelectSymbol }: SectorAl
                   <p className="text-[11px] text-muted truncate">{peer.name}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className={`text-sm font-bold font-mono ${s >= 60 ? 'text-gain' : s >= 40 ? 'text-gold' : 'text-loss'}`}>
+                  <p className={`text-sm font-bold font-mono ${s >= 60 ? 'text-gain' : s >= 40 ? 'text-warning' : 'text-loss'}`}>
                     {s}/100
                   </p>
-                  {isBetter && <p className="text-[9px] text-gain font-bold">↑ Better</p>}
+                  {isBetter && <p className="text-[10px] text-gain font-bold">↑ Better</p>}
                 </div>
               </div>
               <div className="flex gap-3 mt-2">

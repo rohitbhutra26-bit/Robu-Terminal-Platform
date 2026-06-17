@@ -30,13 +30,12 @@ interface Props {
 
 // ─── SVG line chart ───────────────────────────────────────────────────────────
 function LineChart({
-  values, dates, stats, currentVal, label, color,
+  values, dates, stats, currentVal, color,
 }: {
   values: (number | null)[];
   dates: string[];
   stats: ValStats;
   currentVal: number;
-  label: string;
   color: string;
 }) {
   const W = 560;
@@ -85,7 +84,8 @@ function LineChart({
   // Percentile of current value
   const below  = allV.filter(v => v <= currentVal).length;
   const pctile = Math.round((below / allV.length) * 100);
-  const zone   = pctile >= 75 ? { label: 'Expensive',    cls: 'text-loss'  }
+  const zone   = currentVal <= 0 ? { label: 'N/A - loss-making', cls: 'text-muted' }
+               : pctile >= 75 ? { label: 'Expensive',    cls: 'text-loss'  }
                : pctile >= 50 ? { label: 'Above median', cls: 'text-gold'  }
                : pctile >= 25 ? { label: 'Below median', cls: 'text-gain'  }
                :                { label: 'Cheap',        cls: 'text-gain'  };
@@ -235,7 +235,9 @@ export default function HistoricalValuationChart({ company }: Props) {
   }, [company.symbol, defaultMetric]);
 
   const { peValues, pbValues, dates } = useMemo(() => {
-    if (!data) return { peValues: [], pbValues: [], dates: [] };
+    if (!data || !Array.isArray(data.points)) {
+      return { peValues: [], pbValues: [], dates: [] };
+    }
     return {
       peValues: data.points.map(p => p.pe),
       pbValues: data.points.map(p => p.pb),
@@ -243,8 +245,12 @@ export default function HistoricalValuationChart({ company }: Props) {
     };
   }, [data]);
 
+  // No 5-year history for this stock (e.g. small/new listings) — hide the whole
+  // card rather than shouting a red error. Nothing to show, so show nothing.
+  if (error) return null;
+
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-4">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
@@ -294,7 +300,7 @@ export default function HistoricalValuationChart({ company }: Props) {
         </div>
       )}
 
-      {data && !loading && (
+      {data && data.stats && !loading && (
         <>
           {activeMetric === 'pe' && (
             <LineChart
@@ -302,7 +308,7 @@ export default function HistoricalValuationChart({ company }: Props) {
               dates={dates}
               stats={data.stats.pe}
               currentVal={company.pe}
-              label="P/E Ratio"
+
               color="#3b82f6"
             />
           )}
@@ -312,7 +318,7 @@ export default function HistoricalValuationChart({ company }: Props) {
               dates={dates}
               stats={data.stats.pb}
               currentVal={company.pb}
-              label="P/B Ratio"
+
               color="#3B82F6"
             />
           )}

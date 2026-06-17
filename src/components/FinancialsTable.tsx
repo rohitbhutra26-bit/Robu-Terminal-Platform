@@ -8,7 +8,7 @@ interface FinancialsTableProps {
 
 function ColoredGrowth({ value }: { value: number }) {
   if (value === 0) return <span className="text-muted">—</span>;
-  const color = value >= 15 ? 'text-gain' : value >= 0 ? 'text-gold' : 'text-loss';
+  const color = value >= 15 ? 'text-gain' : value >= 0 ? 'text-warning' : 'text-loss';
   return (
     <span className={`${color} font-mono`}>
       {value > 0 ? '+' : ''}{value.toFixed(1)}%
@@ -20,15 +20,15 @@ function ColoredMargin({ value, type }: { value: number; type: 'ebitda' | 'net' 
   const thresholds = type === 'ebitda'
     ? { good: 20, ok: 12 }
     : { good: 15, ok: 8 };
-  const color = value >= thresholds.good ? 'text-gain' : value >= thresholds.ok ? 'text-gold' : 'text-loss';
+  const color = value >= thresholds.good ? 'text-gain' : value >= thresholds.ok ? 'text-warning' : 'text-loss';
   return <span className={`${color} font-mono`}>{value.toFixed(1)}%</span>;
 }
 
 export default function FinancialsTable({ financials }: FinancialsTableProps) {
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-3xl overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary">5-Year Financials</h3>
+        <h3 className="text-sm font-semibold text-primary">{financials.length}-Year Financials</h3>
         <span className="text-xs text-muted hidden sm:block">All figures in ₹ Crore except EPS</span>
         <span className="text-xs text-muted sm:hidden">₹ Crore</span>
       </div>
@@ -36,7 +36,7 @@ export default function FinancialsTable({ financials }: FinancialsTableProps) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border bg-border/20">
-              <th className="sticky left-0 bg-card/95 text-left px-4 py-2.5 text-muted font-medium uppercase tracking-wide whitespace-nowrap z-10">
+              <th className="sticky left-0 bg-card text-left px-4 py-2.5 text-muted font-medium uppercase tracking-wide whitespace-nowrap z-10 border-r border-border/40">
                 Metric
               </th>
               {financials.map((f) => (

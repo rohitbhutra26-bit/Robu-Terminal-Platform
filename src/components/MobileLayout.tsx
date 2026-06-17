@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Company, FinancialYear, ValuationAssumptions } from '@/lib/types';
 import {
-  Search, TrendingUp, SlidersHorizontal, Sparkles, Table2, Users,
-  AlertTriangle, Pencil, RotateCcw, Bookmark, Briefcase, Filter,
+  Search, TrendingUp, Users,
+  AlertTriangle, Pencil, RotateCcw, Bookmark, Briefcase,
   ChevronRight,
 } from '@/lib/icons';
 import ThemeToggle from './ThemeToggle';
-import { getSectorProfile, getCompanyProfile } from '@/lib/sectorModelMap';
+import { getCompanyProfile } from '@/lib/sectorModelMap';
 import CompanySearch from './CompanySearch';
 import AIOverview from './AIOverview';
 import ScenarioCards from './ScenarioCards';
@@ -16,24 +16,27 @@ import FinancialsTable from './FinancialsTable';
 import ValuationEngine from './ValuationEngine';
 import EarningsQuality from './EarningsQuality';
 import WhatMustHappen from './WhatMustHappen';
+import ReverseDCF from './ReverseDCF';
+import MonteCarloCard from './MonteCarloCard';
+import RedFlagsCard from './RedFlagsCard';
 import HistoricalValuationChart from './HistoricalValuationChart';
 import ForecastChart from './ForecastChart';
 import IndustryBenchmarks from './IndustryBenchmarks';
 import PeerCompare from './PeerCompare';
 import VerdictCard from './VerdictCard';
+import MetricTrends from './MetricTrends';
+import ValuationCaveatBanner from './ValuationCaveatBanner';
+import WealthProjection from './WealthProjection';
 import WatchlistView from './WatchlistView';
 import PortfolioView from './PortfolioView';
-import StockScreener from './StockScreener';
 import ROBUScoreCard from './ROBUScoreCard';
 import ScenarioBuilder from './ScenarioBuilder';
-import AnnouncementsFeed from './AnnouncementsFeed';
 import SectorAlternatives from './SectorAlternatives';
-import PriceChart from './PriceChart';
 import { getBaselineFinancial } from '@/lib/forecastUtils';
 
 // ─── Tab types ────────────────────────────────────────────────────────────────
 type MainTab  = 'home' | 'watchlist' | 'portfolio' | 'stock';
-type StockTab = 'overview' | 'valuation' | 'ai' | 'peers' | 'financials';
+type StockTab = 'valuation' | 'financials' | 'profile';
 
 interface Props {
   company: Company | null;
@@ -53,10 +56,25 @@ interface Props {
 export function RobuLogo({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <text x="50" y="79"
-        fontFamily="Lora, Georgia, 'Times New Roman', serif"
-        fontSize="82" fontWeight="700" fill="#C4511A"
-        textAnchor="middle" dominantBaseline="auto">R</text>
+      <rect x="4" y="4" width="92" height="92" rx="26" fill="#7A2238" />
+      {/* The actual 'r' glyph from the robu wordmark, so the mark and the wordmark
+          are the same letterform everywhere (header, favicon, app icon). */}
+      <g transform="translate(31.7, 12) scale(0.41)">
+        <path fill="#FFFFFF" fillRule="evenodd" d="M1,82.47 C2.4,78.87 4.08,75.84 5.15,72.61 C11.93,52.24 25.31,38.41 45.34,30.63 C57.21,26.02 69.36,24.51 81.96,25.02 C86.26,25.2 87.97,27.02 87.85,31.14 C87.75,34.47 87.89,37.8 87.83,41.13 C87.72,47.02 86.94,47.48 81.16,47.97 C73.27,48.64 65.06,48.62 57.63,50.95 C43.32,55.44 33.63,65.82 29.13,80 C26.85,87.15 26.25,95.04 26.09,102.62 C25.7,121.76 25.97,140.91 25.99,160.53 C17.7,161 9.4,161 1,161 C1,134.98 1,108.96 1,82.47 z" />
+      </g>
+    </svg>
+  );
+}
+
+// Real "robu" wordmark (user's logo). Uses currentColor so it themes via text-* class.
+export function RobuWordmark({ height = 22, className = '' }: { height?: number; className?: string }) {
+  return (
+    <svg height={height} viewBox="0 0 516 160" fill="currentColor" role="img" aria-label="robu"
+      className={className} style={{ width: 'auto', display: 'block' }}>
+      <path fillRule="evenodd" d="M281.47,161 C279.4,159.68 278.01,157.88 276.18,157.13 C253.53,147.79 239.16,131.43 234.07,107.36 C232.88,101.73 232.22,95.88 232.17,90.13 C231.98,63.83 232.06,37.54 232.12,11.24 C232.13,8.1 232.6,4.96 232.93,1.41 C239.35,1 245.71,1 252.53,1 C253.31,12.47 253.61,23.95 253.94,35.42 C254.01,37.68 254.21,39.94 254.41,43.36 C256.54,41.92 257.89,41.15 259.08,40.18 C267.35,33.42 276.89,29.77 287.18,26.95 C302.47,22.75 316.9,25.75 330.43,31.75 C348.61,39.81 361.52,53.53 367.63,73.08 C373.13,90.65 371.95,107.65 363.68,123.93 C355.7,139.63 343.33,150.75 326.75,157.07 C324.8,157.81 323.12,159.26 321.16,160.69 C307.98,161 294.96,161 281.47,161 M336.61,122.06 C345.63,109.74 349.25,96.53 344.81,81.31 C339.82,64.19 325.93,50.72 308.22,48 C290.04,45.21 275.45,52.5 265.01,67.11 C253.99,82.56 253.19,99.58 262.26,116.05 C269.64,129.46 281.51,137.93 297.16,139.75 C313.4,141.64 325.67,134.06 336.61,122.06 z"/>
+      <path fillRule="evenodd" d="M136.47,161 C133.86,159.52 131.89,157.63 129.55,156.62 C107.45,147.12 93.96,130.75 88.92,107.16 C83.92,83.7 90.78,63.69 106.53,46.58 C115.85,36.46 127.97,30.4 141.46,27.47 C146.28,26.42 151.23,25.14 156.08,25.28 C176.33,25.88 193.999,32.94 208.12,47.81 C231.76,72.69 232.34,112.74 209.56,138.36 C202.02,146.84 193.2,153.34 182.33,156.98 C180.19,157.7 178.33,159.25 176.17,160.71 C162.98,161 149.96,161 136.47,161 M146.87,138.94 C171.98,144.82 199.24,125.2 201.9,98.58 C205.24,65.11 171.6,41.11 144.21,49.93 C113.04,59.97 101.41,97.79 122.22,123.1 C128.54,130.79 136.8,135.53 146.87,138.94 z"/>
+      <path fillRule="evenodd" d="M428.47,161 C425.9,159.73 423.94,158.02 421.67,157.27 C402.25,150.89 389.94,136.89 381.98,118.99 C379.01,112.32 377.55,104.52 377.35,97.18 C376.74,75.7 377.08,54.19 377.12,32.69 C377.13,26.13 378.07,25.28 384.72,25.18 C387.38,25.14 390.05,25.16 392.71,25.17 C401.44,25.2 401.84,25.56 401.85,34.1 C401.87,53.27 401.8,72.43 401.9,91.6 C401.93,95.91 402.12,100.29 402.95,104.51 C407.22,126.43 434.79,147.82 461.15,137.12 C479.88,129.52 492.31,112.57 492.19,92.02 C492.07,72.52 492.15,53.03 492.18,33.53 C492.19,25.49 492.52,25.11 500.73,25.2 C505.88,25.26 511.02,25.66 516.59,25.96 C517,51.69 517,77.38 516.71,103.73 C514.71,109.4 513.36,114.56 511.23,119.37 C503.29,137.37 490.39,150.32 471.77,157.34 C469.68,158.13 467.91,159.76 466,161 C453.65,161 441.29,161 428.47,161 z"/>
+      <path fillRule="evenodd" d="M1,82.47 C2.4,78.87 4.08,75.84 5.15,72.61 C11.93,52.24 25.31,38.41 45.34,30.63 C57.21,26.02 69.36,24.51 81.96,25.02 C86.26,25.2 87.97,27.02 87.85,31.14 C87.75,34.47 87.89,37.8 87.83,41.13 C87.72,47.02 86.94,47.48 81.16,47.97 C73.27,48.64 65.06,48.62 57.63,50.95 C43.32,55.44 33.63,65.82 29.13,80 C26.85,87.15 26.25,95.04 26.09,102.62 C25.7,121.76 25.97,140.91 25.99,160.53 C17.7,161 9.4,161 1,161 C1,134.98 1,108.96 1,82.47 z"/>
     </svg>
   );
 }
@@ -101,7 +119,8 @@ function BottomNav({
       className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="bg-card backdrop-blur-xl border-t border-border flex">
+      <div className="bg-card backdrop-blur-xl border-t border-border flex justify-center">
+        <div className="flex w-full max-w-md">
         {tabs.map(({ id, label, icon }) => {
           const disabled = id === 'stock' && !hasCompany;
           const isOn = active === id;
@@ -109,17 +128,21 @@ function BottomNav({
             <button
               key={id}
               onClick={() => !disabled && onChange(id)}
+              aria-label={label}
+              aria-current={isOn ? 'page' : undefined}
+              aria-disabled={disabled}
               className={`flex-1 flex flex-col items-center py-2 gap-0.5 transition-colors min-w-0
                 ${disabled ? 'opacity-25 cursor-not-allowed' : ''}`}
             >
               {icon}
-              <span className={`text-[9px] font-medium leading-none ${isOn ? 'text-gold' : 'text-muted'}`}>
+              <span className={`text-[10px] font-medium leading-none ${isOn ? 'text-gold' : 'text-muted'}`}>
                 {label}
               </span>
               {isOn && <div className="w-4 h-0.5 rounded-full bg-gold mt-0.5" />}
             </button>
           );
         })}
+        </div>
       </div>
     </nav>
   );
@@ -130,14 +153,12 @@ function StockSubNav({
   active, onChange,
 }: { active: StockTab; onChange: (t: StockTab) => void }) {
   const tabs: { id: StockTab; label: string }[] = [
-    { id: 'overview',   label: 'Overview' },
     { id: 'valuation',  label: 'Valuation' },
-    { id: 'ai',         label: 'AI' },
-    { id: 'peers',      label: 'Peers' },
-    { id: 'financials', label: 'Data' },
+    { id: 'financials', label: 'Financials' },
+    { id: 'profile',    label: 'Profile' },
   ];
   return (
-    <div className="flex gap-1.5 overflow-x-auto px-4 py-2 border-b border-border bg-card/95 backdrop-blur-xl no-scrollbar">
+    <div className="flex gap-1.5 overflow-x-auto md:flex-wrap px-4 py-2 border-b border-border bg-card/95 backdrop-blur-xl no-scrollbar">
       {tabs.map(({ id, label }) => (
         <button
           key={id}
@@ -163,7 +184,7 @@ function MobileHeader({
   const isPos = company ? company.changePercent >= 0 : true;
 
   const pageTitle: Record<MainTab, string> = {
-    home:      'Robu Terminal',
+    home:      'Robu',
     
     watchlist: 'Watchlist',
     portfolio: 'Portfolio',
@@ -261,18 +282,9 @@ function MobileError({ message, onRetry }: { message: string; onRetry: () => voi
 function HomeView({
   onSelect, selectedSymbol, onGoTo,
 }: { onSelect: (s: string) => void; selectedSymbol: string; onGoTo: (t: MainTab) => void }) {
-  const chips = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'WIPRO', 'BAJFINANCE', 'TATAMOTORS', 'SBIN', 'ADANIENT', 'ANGELONE', 'KAYNES'];
+  const chips = ['RELIANCE', 'TCS', 'INFY', 'HDFCBANK', 'ICICIBANK', 'WIPRO', 'BAJFINANCE', 'TMPV', 'SBIN', 'ADANIENT', 'ANGELONE', 'KAYNES'];
 
   const shortcuts = [
-    {
-      id: 'screener' as MainTab,
-      title: 'Stock Screener',
-      desc: 'Filter all NSE stocks by ROE, P/E, margin & more',
-      Icon: Filter,
-      color: 'text-accent',
-      bg: 'bg-accent/10',
-      border: 'border-accent/20',
-    },
     {
       id: 'watchlist' as MainTab,
       title: 'Watchlist',
@@ -294,26 +306,28 @@ function HomeView({
   ];
 
   return (
-    <div className="flex flex-col px-4 pb-32">
-      {/* Hero */}
-      <div className="flex flex-col items-center pt-12 pb-6 px-4">
-        <RobuLogo size={60} />
-        <h1 className="text-3xl font-bold text-primary mt-4 tracking-tight font-serif">Robu Terminal</h1>
-        <p className="text-sm text-muted mt-2 text-center leading-relaxed">
-          Find out if any Indian stock is{' '}
-          <span className="font-semibold text-primary">cheap</span>,{' '}
-          <span className="font-semibold text-primary">fair</span>, or{' '}
-          <span className="font-semibold text-primary">expensive</span>.
+    <div className="flex flex-col px-4 md:px-6 pb-32 w-full max-w-xl md:max-w-2xl mx-auto">
+      {/* Hero — airy */}
+      <div className="flex flex-col items-center pt-16 md:pt-20 pb-9 px-2">
+        <RobuWordmark height={34} className="text-gold" />
+        <h1 className="text-[26px] font-extrabold text-primary mt-9 tracking-tight text-center leading-[1.1]">
+          Should you buy<br />this stock?
+        </h1>
+        <p className="text-sm text-muted mt-3.5 text-center leading-relaxed max-w-[300px]">
+          Type any Indian stock — Robu tells you if it looks{' '}
+          <span className="font-semibold text-gain">cheap</span>,{' '}
+          <span className="font-semibold text-warning">fair</span>, or{' '}
+          <span className="font-semibold text-loss">expensive</span>.
         </p>
       </div>
 
       {/* Search */}
-      <div className="mb-5">
+      <div className="mb-6 [&_input]:rounded-full">
         <CompanySearch onSelect={onSelect} selectedSymbol={selectedSymbol} />
       </div>
 
-      {/* Utility shortcuts */}
-      <div className="space-y-2 mb-5">
+      {/* Utility shortcuts — 2-up on tablet */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-5">
         {shortcuts.map(s => (
           <button
             key={s.id}
@@ -325,7 +339,7 @@ function HomeView({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-primary">{s.title}</p>
-              <p className="text-[11px] text-muted mt-0.5 truncate">{s.desc}</p>
+              <p className="text-[11px] text-muted mt-0.5 leading-snug">{s.desc}</p>
             </div>
             <ChevronRight size={15} className="text-muted/40 flex-shrink-0" />
           </button>
@@ -349,98 +363,6 @@ function HomeView({
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ─── Overview View ────────────────────────────────────────────────────────────
-function OverviewView({ company, financials, assumptions, isLoading, error, onRetry }: {
-  company: Company | null; financials: FinancialYear[]; assumptions: ValuationAssumptions;
-  isLoading: boolean; error: string | null; onRetry: () => void;
-}) {
-  if (isLoading) return <MobileLoader symbol="…" />;
-  if (error) return <MobileError message={error} onRetry={onRetry} />;
-  if (!company) return null;
-
-  const isPos = company.changePercent >= 0;
-  const low = company.week52Low;
-  const high = company.week52High;
-  const pct = high > low ? Math.max(2, Math.min(98, ((company.currentPrice - low) / (high - low)) * 100)) : 50;
-  const latest = financials.length > 0 ? financials[financials.length - 1] : null;
-
-  const stats = [
-    { label: 'Market Cap',    value: fmt(company.marketCap) },
-    { label: 'P/E Ratio',    value: `${company.pe.toFixed(1)}x`,             color: 'text-gold' },
-    { label: 'P/B Ratio',    value: `${company.pb.toFixed(1)}x` },
-    { label: 'ROE',          value: `${company.roe.toFixed(1)}%`,            color: company.roe >= 20 ? 'text-gain' : company.roe >= 12 ? 'text-gold' : 'text-loss' },
-    { label: 'Debt/Equity',  value: `${company.debtToEquity.toFixed(2)}x`,   color: company.debtToEquity < 1 ? 'text-gain' : company.debtToEquity < 3 ? 'text-gold' : 'text-loss' },
-    { label: 'Div Yield',    value: `${company.dividendYield.toFixed(2)}%` },
-  ];
-
-  return (
-    <div className="px-4 pt-4 pb-32 space-y-3">
-      <VerdictCard company={company} financials={financials} assumptions={assumptions} />
-
-      {/* Price card */}
-      <div className="bg-card rounded-2xl p-4 border border-border">
-        <div className="mb-2">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono font-bold text-gold tracking-wider">{company.symbol}</span>
-            <span className="text-[10px] px-1.5 py-0.5 bg-border/60 rounded text-muted max-w-[140px] truncate">{company.sector}</span>
-          </div>
-          <h2 className="text-base font-bold text-primary leading-snug line-clamp-2">{company.name}</h2>
-        </div>
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-3xl font-bold font-mono text-primary leading-none">
-            ₹{company.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-        <div className={`flex items-center flex-wrap gap-x-2 gap-y-0.5 text-sm font-semibold font-mono mb-4 ${isPos ? 'text-gain' : 'text-loss'}`}>
-          <span>{isPos ? '+' : ''}₹{Math.abs(company.change).toFixed(2)}</span>
-          <span>({isPos ? '+' : ''}{company.changePercent.toFixed(2)}%)</span>
-          <span className="text-xs text-muted font-normal">today</span>
-        </div>
-        <div className="flex justify-between text-[10px] text-muted mb-1.5 gap-2">
-          <span className="truncate">52W Low ₹{low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-          <span className="flex-shrink-0">52W High ₹{high.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-        </div>
-        <div className="relative h-2 bg-border rounded-full overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-loss via-gold to-gain opacity-30 rounded-full" />
-          <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-gold bg-terminal"
-            style={{ left: `calc(${pct}% - 7px)` }} />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {stats.map((s, i) => (
-          <div key={i} className="bg-card border border-border rounded-xl p-3">
-            <p className="text-[10px] text-muted mb-1 uppercase tracking-wide">{s.label}</p>
-            <p className={`text-base font-bold font-mono ${s.color || 'text-primary'}`}>{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Latest Financials */}
-      {latest && (
-        <div className="bg-card border border-border rounded-xl p-4">
-          <p className="text-[10px] text-muted uppercase tracking-wider mb-3 font-semibold">Last reported — {latest.year}</p>
-          <div className="space-y-2.5">
-            {[
-              { label: 'Revenue',         value: fmt(latest.revenue) },
-              { label: 'Net Profit (PAT)',value: fmt(latest.pat), color: latest.pat > 0 ? 'text-gain' : 'text-loss' },
-              { label: 'EBITDA Margin',   value: `${latest.ebitdaMargin.toFixed(1)}%`, color: latest.ebitdaMargin >= 20 ? 'text-gain' : latest.ebitdaMargin >= 12 ? 'text-gold' : 'text-primary' },
-              { label: 'Net Margin',      value: `${latest.netMargin.toFixed(1)}%` },
-              { label: 'EPS',             value: `₹${latest.eps.toFixed(1)}` },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-sm text-muted">{r.label}</span>
-                <span className={`text-sm font-semibold font-mono ${r.color || 'text-primary'}`}>{r.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -499,8 +421,10 @@ function ValuationView({ company, financials, assumptions, setAssumptions, isLoa
   const sectorProfile = getCompanyProfile(company);
 
   return (
-    <div className="px-4 pt-4 pb-32 space-y-4">
+    <div className="px-4 pt-4 pb-32 space-y-4 max-w-2xl md:max-w-3xl mx-auto w-full">
       <VerdictCard company={company} financials={financials} assumptions={assumptions} />
+
+      <ValuationCaveatBanner company={company} financials={financials} />
 
       <div className="bg-card border border-border rounded-2xl p-4 space-y-5">
         <div className="flex items-center gap-2">
@@ -549,46 +473,36 @@ function ValuationView({ company, financials, assumptions, setAssumptions, isLoa
             `Sector default: ${sectorProfile.defaultExitMultiple}x · Base: ${yearLabel}`
           }
         />
-        <div>
-          <p className="text-sm text-muted mb-2">Projection horizon</p>
-          <div className="flex gap-2">
-            {[3, 5, 7, 10].map(y => (
-              <button
-                key={y}
-                onClick={() => setAssumptions(a => ({ ...a, years: y }))}
-                className={`flex-1 py-3 rounded-xl text-sm font-semibold font-mono transition-all active:scale-95 ${
-                  assumptions.years === y ? 'bg-gold text-terminal' : 'bg-border text-primary/70'
-                }`}
-              >
-                {y}Y
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Global horizon removed — verdict & what-must-happen own their own time view. */}
       </div>
 
-      <PriceChart company={company} financials={financials} />
       <ForecastChart financials={financials} assumptions={assumptions} />
+      {/* Wealth projection — right below the assumptions that drive it */}
+      <WealthProjection company={company} financials={financials} assumptions={assumptions} />
+
       <ScenarioCards financials={financials} assumptions={assumptions} currentPrice={company.currentPrice} company={company} compact />
       <ValuationEngine company={company} financials={financials} assumptions={assumptions} compact />
+      <ReverseDCF company={company} financials={financials} assumptions={assumptions} />
+      <MonteCarloCard company={company} financials={financials} assumptions={assumptions} />
+      <RedFlagsCard company={company} financials={financials} />
       {financials.length >= 3 && <ROBUScoreCard company={company} financials={financials} />}
       <ScenarioBuilder company={company} financials={financials} />
-      <AnnouncementsFeed company={company} />
       <SectorAlternatives company={company} onSelectSymbol={() => {}} />
       <WhatMustHappen company={company} financials={financials} assumptions={assumptions} />
     </div>
   );
 }
 
-// ─── AI View ──────────────────────────────────────────────────────────────────
-function AIView({ company, financials, isLoading, error, onRetry }: {
+// ─── Profile View ─────────────────────────────────────────────────────────────
+function ProfileView({ company, financials, isLoading, error, onRetry }: {
   company: Company | null; financials: FinancialYear[]; isLoading: boolean; error: string | null; onRetry: () => void;
 }) {
   if (isLoading) return <MobileLoader symbol="…" />;
   if (error) return <MobileError message={error} onRetry={onRetry} />;
   if (!company) return null;
   return (
-    <div className="px-4 pt-4 pb-32 space-y-4">
+    <div className="px-4 pt-4 pb-32 space-y-4 max-w-2xl md:max-w-3xl mx-auto w-full">
+      {/* M4: Dividend · Shareholding · Analyst cards land here */}
       <AIOverview company={company} financials={financials} />
       <HistoricalValuationChart company={company} />
       <IndustryBenchmarks company={company} financials={financials} />
@@ -596,40 +510,125 @@ function AIView({ company, financials, isLoading, error, onRetry }: {
   );
 }
 
-// ─── Peers View ───────────────────────────────────────────────────────────────
-function PeersView({ company, isLoading, error, onRetry }: {
-  company: Company | null; isLoading: boolean; error: string | null; onRetry: () => void;
+// ─── Financials View ──────────────────────────────────────────────────────────
+function FinancialsView({ company, financials, isLoading, error, onRetry }: {
+  company: Company | null; financials: FinancialYear[]; isLoading: boolean; error: string | null; onRetry: () => void;
 }) {
   if (isLoading) return <MobileLoader symbol="…" />;
   if (error) return <MobileError message={error} onRetry={onRetry} />;
   if (!company) return null;
-  return (
-    <div className="pt-4 pb-32">
-      <div className="px-4 mb-3">
-        <h3 className="text-sm font-semibold text-primary">Peer Comparison</h3>
-        <p className="text-xs text-muted mt-0.5">How {company.symbol} stacks up — scroll right →</p>
-      </div>
-      <div className="overflow-x-auto px-4">
-        <PeerCompare company={company} />
-      </div>
-    </div>
-  );
-}
 
-// ─── Financials View ──────────────────────────────────────────────────────────
-function FinancialsView({ financials, isLoading, error, onRetry }: {
-  financials: FinancialYear[]; isLoading: boolean; error: string | null; onRetry: () => void;
-}) {
-  if (isLoading) return <MobileLoader symbol="…" />;
-  if (error) return <MobileError message={error} onRetry={onRetry} />;
-  if (financials.length === 0) return (
-    <div className="flex items-center justify-center h-64">
-      <p className="text-sm text-muted px-6 text-center">No financial history available</p>
-    </div>
-  );
+  const isPos = company.changePercent >= 0;
+  const low = company.week52Low;
+  const high = company.week52High;
+  const pct = high > low ? Math.max(2, Math.min(98, ((company.currentPrice - low) / (high - low)) * 100)) : 50;
+  // Partial-year-aware baseline (a 9-month trailing year would misreport "last reported")
+  const latest = financials.length > 0 ? getBaselineFinancial(financials).baseline : null;
+
+  const has52W = low > 0 && high > 0;
+  const gPos = (n: number) => Math.max(6, Math.min(94, n));
+  const stats: { label: string; value: string; color?: string; gauge?: number; dot?: 'gain' | 'warning' | 'loss' }[] = [
+    { label: 'Market Cap',    value: fmt(company.marketCap) },
+    { label: 'P/E Ratio',    value: company.pe > 0 ? `${company.pe.toFixed(1)}x` : '—',
+      color: company.pe <= 0 ? 'text-muted' : company.pe < 18 ? 'text-gain' : company.pe < 30 ? 'text-warning' : 'text-loss',
+      gauge: company.pe > 0 ? gPos((company.pe / 50) * 100) : undefined,
+      dot: company.pe <= 0 ? undefined : company.pe < 18 ? 'gain' : company.pe < 30 ? 'warning' : 'loss' },
+    { label: 'P/B Ratio',    value: company.pb > 0 ? `${company.pb.toFixed(1)}x` : '—',
+      color: company.pb <= 0 ? 'text-muted' : company.pb < 1.5 ? 'text-gain' : company.pb < 4 ? 'text-warning' : 'text-loss',
+      gauge: company.pb > 0 ? gPos((company.pb / 8) * 100) : undefined,
+      dot: company.pb <= 0 ? undefined : company.pb < 1.5 ? 'gain' : company.pb < 4 ? 'warning' : 'loss' },
+    { label: 'ROE',          value: `${company.roe.toFixed(1)}%`,
+      color: company.roe >= 20 ? 'text-gain' : company.roe >= 12 ? 'text-warning' : 'text-loss',
+      gauge: company.roe > 0 ? gPos((company.roe / 40) * 100) : undefined,
+      dot: company.roe <= 0 ? undefined : company.roe >= 20 ? 'gain' : company.roe >= 12 ? 'warning' : 'loss' },
+    { label: 'Debt/Equity',  value: `${company.debtToEquity.toFixed(2)}x`,
+      color: company.debtToEquity < 1 ? 'text-gain' : company.debtToEquity < 3 ? 'text-warning' : 'text-loss',
+      gauge: company.debtToEquity > 0 ? gPos((company.debtToEquity / 5) * 100) : undefined,
+      dot: company.debtToEquity <= 0 ? undefined : company.debtToEquity < 1 ? 'gain' : company.debtToEquity < 3 ? 'warning' : 'loss' },
+    { label: 'Div Yield',    value: company.dividendYield > 0 ? `${company.dividendYield.toFixed(2)}%` : '—' },
+  ];
+
   return (
     <div className="pt-4 pb-32">
-      <div className="px-4 mb-3">
+      <div className="px-4 space-y-3 max-w-2xl md:max-w-3xl mx-auto w-full">
+        {/* ── Company card (brief: eyebrow → name → big mono price → change) ── */}
+        <div className="bg-card border border-border rounded-[20px] p-[18px]">
+          <p className="text-[12px] font-medium text-muted">
+            <span className="font-mono font-semibold text-gold">{company.symbol}</span>
+            {company.sector ? <span> · {company.sector}</span> : null}
+          </p>
+          {/* min-w-0 + break-words = never collapses to one-letter-per-line */}
+          <h2 className="mt-1 text-[17px] font-bold text-primary leading-snug break-words [text-wrap:balance] min-w-0">
+            {company.name}
+          </h2>
+          <div className="mt-2.5 flex items-baseline gap-2.5 flex-wrap">
+            <span className="text-[26px] font-bold font-mono text-primary leading-none">
+              ₹{company.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </span>
+            <span className={`text-sm font-semibold font-mono ${isPos ? 'text-gain' : 'text-loss'}`}>
+              {isPos ? '+' : ''}₹{Math.abs(company.change).toFixed(2)} ({isPos ? '+' : ''}{company.changePercent.toFixed(2)}%)
+              <span className="text-muted font-normal"> today</span>
+            </span>
+          </div>
+          {has52W && (
+            <div className="mt-4">
+              <div className="flex justify-between text-[10.5px] font-mono text-muted/80 mb-1.5 gap-2">
+                <span className="truncate">52W ₹{low.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                <span className="flex-shrink-0">₹{high.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+              </div>
+              <div className="relative h-2 bg-border/60 rounded-full overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-loss via-warning to-gain opacity-30 rounded-full" />
+                <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-gold bg-terminal"
+                  style={{ left: `calc(${pct}% - 7px)` }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Key ratios (brief: 2-col stat tiles, mono values) ── */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted/70 mb-2.5 px-0.5">Key ratios</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {stats.map((stat, i) => (
+              <div key={i} className="bg-card border border-border rounded-[15px] px-3.5 py-3">
+                <p className="text-[11.5px] text-muted mb-1.5">{stat.label}</p>
+                <p className={`text-[18px] font-semibold font-mono leading-none ${stat.color || 'text-primary'}`}>{stat.value}</p>
+                {typeof stat.gauge === 'number' && (
+                  <div className="mt-2.5 h-1 rounded-full bg-border/70 relative" aria-hidden="true">
+                    <span className="absolute top-1/2 w-2 h-2 rounded-full"
+                          style={{ left: `${stat.gauge}%`, transform: 'translate(-50%, -50%)', background: `rgb(var(--color-${stat.dot || 'muted'}))` }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Last reported (brief: row list, hair dividers, mono right) ── */}
+        {latest && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-muted/70 mb-2.5 px-0.5">Last reported · {latest.year}</p>
+            <div className="bg-card border border-border rounded-[20px] px-[18px]">
+              {[
+                { label: 'Revenue',          value: fmt(latest.revenue) },
+                { label: 'Net profit (PAT)', value: fmt(latest.pat), color: latest.pat > 0 ? 'text-gain' : 'text-loss' },
+                { label: 'EBITDA margin',    value: `${latest.ebitdaMargin.toFixed(1)}%`, color: latest.ebitdaMargin >= 20 ? 'text-gain' : latest.ebitdaMargin >= 12 ? 'text-warning' : 'text-primary' },
+                { label: 'Net margin',       value: `${latest.netMargin.toFixed(1)}%`, color: latest.netMargin >= 10 ? 'text-gain' : 'text-primary' },
+                { label: 'EPS',              value: `₹${latest.eps.toFixed(1)}` },
+              ].map((r, i, a) => (
+                <div key={i} className={`flex items-center justify-between py-[13px] ${i < a.length - 1 ? 'border-b border-border/60' : ''}`}>
+                  <span className="text-sm text-muted">{r.label}</span>
+                  <span className={`text-[15px] font-semibold font-mono ${r.color || 'text-primary'}`}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <MetricTrends financials={financials} />
+      </div>
+
+      <div className="px-4 mb-3 mt-4">
         <h3 className="text-sm font-semibold text-primary">Financial History</h3>
         <p className="text-xs text-muted mt-0.5">Scroll right to see all years →</p>
       </div>
@@ -638,6 +637,15 @@ function FinancialsView({ financials, isLoading, error, onRetry }: {
       </div>
       <div className="px-4 mt-4">
         <EarningsQuality financials={financials} />
+      </div>
+
+      {/* ── Peer comparison (moved from old Peers tab) ── */}
+      <div className="px-4 mb-3 mt-6">
+        <h3 className="text-sm font-semibold text-primary">Peer Comparison</h3>
+        <p className="text-xs text-muted mt-0.5">How {company.symbol} stacks up — scroll right →</p>
+      </div>
+      <div className="overflow-x-auto px-4">
+        <PeerCompare company={company} />
       </div>
     </div>
   );
@@ -649,17 +657,27 @@ export default function MobileLayout({
   assumptions, setAssumptions, onSelect, onRetry, onReset, hasChanges,
 }: Props) {
   const [mainTab, setMainTab]   = useState<MainTab>('home');
-  const [stockTab, setStockTab] = useState<StockTab>('overview');
+  const [stockTab, setStockTab] = useState<StockTab>('valuation');
+  const [scrolled, setScrolled] = useState(false);
 
   const mountedMain  = useRef<Set<MainTab>>(new Set<MainTab>(['home']));
-  const mountedStock = useRef<Set<StockTab>>(new Set<StockTab>(['overview']));
+  const mountedStock = useRef<Set<StockTab>>(new Set<StockTab>(['valuation']));
+
+  // Shared links (?symbol=X) must open the stock directly, like on desktop
+  useEffect(() => {
+    if (company && selectedSymbol && mainTab === 'home') {
+      mountedMain.current.add('stock');
+      setMainTab('stock');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company?.symbol]);
 
   function handleSelect(symbol: string) {
     onSelect(symbol);
     setMainTab('stock');
-    setStockTab('overview');
+    setStockTab('valuation');
     mountedMain.current.add('stock');
-    mountedStock.current.add('overview');
+    mountedStock.current.add('valuation');
   }
 
   function handleMainTab(tab: MainTab) {
@@ -670,11 +688,6 @@ export default function MobileLayout({
   function handleStockTab(tab: StockTab) {
     mountedStock.current.add(tab);
     setStockTab(tab);
-  }
-
-  // When screener selects a symbol, go to stock tab
-  function handleScreenerSelect(symbol: string) {
-    handleSelect(symbol);
   }
 
   const showStockContent = mainTab === 'stock';
@@ -708,9 +721,13 @@ export default function MobileLayout({
                   </span>
                 </div>
               </div>
+            ) : mainTab === 'home' ? (
+              // Home hero already shows the big wordmark; keep the header brand-free at
+              // the top and fade the matching wordmark in once the user scrolls.
+              <RobuWordmark height={17} className={`text-gold transition-opacity duration-200 ${scrolled ? 'opacity-100' : 'opacity-0'}`} />
             ) : (
               <span className="text-sm font-bold text-primary tracking-tight">
-                {{ home: 'Robu Terminal', watchlist: 'Watchlist', portfolio: 'Portfolio', stock: 'Analysis' }[mainTab as string] || 'Robu Terminal'}
+                {{ watchlist: 'Watchlist', portfolio: 'Portfolio', stock: 'Analysis' }[mainTab as string] || ''}
               </span>
             )}
           </div>
@@ -732,13 +749,11 @@ export default function MobileLayout({
 
         {/* Stock sub-tabs */}
         {showStockContent && company && (
-          <div className="flex gap-1.5 overflow-x-auto px-4 pb-2.5 no-scrollbar">
+          <div className="flex gap-1.5 overflow-x-auto md:flex-wrap px-4 pb-2.5 no-scrollbar">
             {([
-              { id: 'overview' as StockTab,   label: 'Overview' },
               { id: 'valuation' as StockTab,  label: 'Valuation' },
-              { id: 'ai' as StockTab,         label: 'AI' },
-              { id: 'peers' as StockTab,      label: 'Peers' },
-              { id: 'financials' as StockTab, label: 'Data' },
+              { id: 'financials' as StockTab, label: 'Financials' },
+              { id: 'profile' as StockTab,    label: 'Profile' },
             ]).map(({ id, label }) => (
               <button
                 key={id}
@@ -757,7 +772,8 @@ export default function MobileLayout({
       </header>
 
       {/* Scrollable content */}
-      <main className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <main className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}
+        onScroll={(e) => setScrolled((e.currentTarget as HTMLElement).scrollTop > 40)}>
 
         {/* ── Home ── */}
         <div className={mainTab === 'home' ? '' : 'hidden'}>
@@ -781,16 +797,7 @@ export default function MobileLayout({
         {/* ── Stock analysis ── */}
         {mountedMain.current.has('stock') && (
           <div className={mainTab === 'stock' ? '' : 'hidden'}>
-            {/* Overview */}
-            {mountedStock.current.has('overview') && (
-              <div className={stockTab === 'overview' ? '' : 'hidden'}>
-                <OverviewView
-                  company={company} financials={financials} assumptions={assumptions}
-                  isLoading={isLoading} error={error} onRetry={onRetry}
-                />
-              </div>
-            )}
-            {/* Valuation */}
+            {/* Valuation (hero / default) */}
             {mountedStock.current.has('valuation') && (
               <div className={stockTab === 'valuation' ? '' : 'hidden'}>
                 <ValuationView
@@ -801,22 +808,16 @@ export default function MobileLayout({
                 />
               </div>
             )}
-            {/* AI */}
-            {mountedStock.current.has('ai') && (
-              <div className={stockTab === 'ai' ? '' : 'hidden'}>
-                <AIView company={company} financials={financials} isLoading={isLoading} error={error} onRetry={onRetry} />
-              </div>
-            )}
-            {/* Peers */}
-            {mountedStock.current.has('peers') && (
-              <div className={stockTab === 'peers' ? '' : 'hidden'}>
-                <PeersView company={company} isLoading={isLoading} error={error} onRetry={onRetry} />
-              </div>
-            )}
             {/* Financials */}
             {mountedStock.current.has('financials') && (
               <div className={stockTab === 'financials' ? '' : 'hidden'}>
-                <FinancialsView financials={financials} isLoading={isLoading} error={error} onRetry={onRetry} />
+                <FinancialsView company={company} financials={financials} isLoading={isLoading} error={error} onRetry={onRetry} />
+              </div>
+            )}
+            {/* Profile */}
+            {mountedStock.current.has('profile') && (
+              <div className={stockTab === 'profile' ? '' : 'hidden'}>
+                <ProfileView company={company} financials={financials} isLoading={isLoading} error={error} onRetry={onRetry} />
               </div>
             )}
 

@@ -19,7 +19,7 @@ interface QuarterlyFlashProps {
 function BeatBadge({ beat }: { beat: 'up' | 'down' | 'flat' }) {
   if (beat === 'up')   return <TrendingUp size={11} className="text-gain" />;
   if (beat === 'down') return <TrendingDown size={11} className="text-loss" />;
-  return <Minus size={11} className="text-gold" />;
+  return <Minus size={11} className="text-warning" />;
 }
 
 function pctChange(curr: number, prev: number): number {
@@ -57,7 +57,7 @@ export default function QuarterlyFlash({ company }: QuarterlyFlashProps) {
 
   if (loading) {
     return (
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
         <div className="flex items-center gap-2 mb-3">
           <Zap size={14} className="text-gold" />
           <h3 className="text-sm font-semibold text-primary">Quarterly Results</h3>
@@ -82,7 +82,7 @@ export default function QuarterlyFlash({ company }: QuarterlyFlashProps) {
   const qoqRev = prevQuarter ? pctChange(latest.revenue, prevQuarter.revenue) : null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export default function QuarterlyFlash({ company }: QuarterlyFlashProps) {
                     <td className="py-1.5 pr-3 text-right font-mono text-primary">
                       {q.revenue > 0 ? q.revenue.toLocaleString('en-IN') : '—'}
                       {revChg !== null && (
-                        <span className={`ml-1 text-[9px] ${revChg >= 0 ? 'text-gain' : 'text-loss'}`}>
+                        <span className={`ml-1 text-[10px] ${revChg >= 0 ? 'text-gain' : 'text-loss'}`}>
                           {revChg >= 0 ? '▲' : '▼'}{Math.abs(revChg).toFixed(0)}%
                         </span>
                       )}

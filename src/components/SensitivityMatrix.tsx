@@ -1,8 +1,10 @@
 'use client';
 
 import { Company, FinancialYear, ValuationAssumptions } from '@/lib/types';
-import { getSectorProfile, getCompanyProfile } from '@/lib/sectorModelMap';
+import { getCompanyProfile } from '@/lib/sectorModelMap';
 import { runPrimaryModel } from '@/lib/forecastUtils';
+import { VERDICT_CUTOFFS } from '@/lib/verdict';
+import { valuationReliability } from '@/lib/valuationReliability';
 
 interface SensitivityMatrixProps {
   financials: FinancialYear[];
@@ -13,10 +15,10 @@ interface SensitivityMatrixProps {
 
 function getCellColor(fairValue: number, currentPrice: number): string {
   const upside = (fairValue / currentPrice - 1) * 100;
-  if (upside >= 30)  return 'bg-gain/20 text-gain border-gain/20';
-  if (upside >= 10)  return 'bg-gain/10 text-gain/80 border-gain/10';
-  if (upside >= -10) return 'bg-gold/10 text-gold border-gold/10';
-  if (upside >= -25) return 'bg-loss/10 text-loss/80 border-loss/10';
+  if (upside >= VERDICT_CUTOFFS.veryCheap)     return 'bg-gain/20 text-gain border-gain/20';
+  if (upside >= VERDICT_CUTOFFS.cheap)         return 'bg-gain/10 text-gain/80 border-gain/10';
+  if (upside >  VERDICT_CUTOFFS.expensive)     return 'bg-gold/10 text-gold border-gold/10';
+  if (upside >  VERDICT_CUTOFFS.veryExpensive) return 'bg-loss/10 text-loss/80 border-loss/10';
   return 'bg-loss/20 text-loss border-loss/20';
 }
 
@@ -24,6 +26,14 @@ export default function SensitivityMatrix({
   financials, assumptions, currentPrice, company,
 }: SensitivityMatrixProps) {
   if (!financials.length) return null;
+  if (!valuationReliability(company, financials).reliable) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
+        <p className="text-sm font-semibold text-warning mb-1">Not meaningful for this stock</p>
+        <p className="text-xs text-muted leading-relaxed">This company is loss-making or has negative net worth, so a fair value / multiple-based estimate does not apply here. See the caution under the verdict above.</p>
+      </div>
+    );
+  }
 
   const profile = getCompanyProfile(company);
   const g       = assumptions.revenueGrowthRate;
@@ -48,7 +58,7 @@ export default function SensitivityMatrix({
   const multDecimals = profile.model === 'pb' ? 1 : 0;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-primary">Sensitivity Matrix</h3>
         <span className="text-xs text-muted font-mono">
@@ -56,6 +66,9 @@ export default function SensitivityMatrix({
         </span>
       </div>
 
+      <p className="text-xs text-muted mb-1">
+        What the stock is worth if your inputs turn out different. ✦ marks your current inputs.
+      </p>
       <p className="text-xs text-muted mb-3">
         Revenue Growth % (rows) × {profile.exitMultipleLabel} (cols)
         {profile.model !== 'pb' && profile.model !== 'ev_ebitda' && ` — Net Margin fixed at ${margin.toFixed(1)}%`}

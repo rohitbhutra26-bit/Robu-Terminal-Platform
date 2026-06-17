@@ -2,9 +2,11 @@
 
 import { useState, useMemo } from 'react';
 import { Company, FinancialYear, ValuationAssumptions } from '@/lib/types';
-import { getSectorProfile, getCompanyProfile } from '@/lib/sectorModelMap';
+import { getCompanyProfile } from '@/lib/sectorModelMap';
 import { computeTargetPath, Feasibility, PathRequirement } from '@/lib/targetPathEngine';
+import { valuationReliability } from '@/lib/valuationReliability';
 import { Clock } from '@/lib/icons';
+import Tooltip from '@/components/Tooltip';
 
 interface Props {
   company: Company;
@@ -15,7 +17,7 @@ interface Props {
 // ─── Feasibility config ───────────────────────────────────────────────────────
 const FEASIBILITY: Record<Feasibility, { label: string; color: string; bg: string; border: string; dot: string }> = {
   achievable:  { label: 'Achievable',  color: 'text-gain', bg: 'bg-gain/10',  border: 'border-gain/30',  dot: '#10B981' },
-  ambitious:   { label: 'Ambitious',   color: 'text-gold', bg: 'bg-gold/10',  border: 'border-gold/30',  dot: '#3b82f6' },
+  ambitious:   { label: 'Ambitious',   color: 'text-gold', bg: 'bg-gold/10',  border: 'border-gold/30',  dot: '#F59E0B' },
   difficult:   { label: 'Difficult',   color: 'text-loss', bg: 'bg-loss/10',  border: 'border-loss/30',  dot: '#EF4444' },
   unrealistic: { label: 'Unrealistic', color: 'text-loss', bg: 'bg-loss/20',  border: 'border-loss/40',  dot: '#EF4444' },
 };
@@ -58,21 +60,6 @@ function RequirementRow({ req, applicable = true }: { req: PathRequirement; appl
 
       {/* Explanation */}
       <p className="ml-4 text-[11px] text-muted leading-relaxed">{req.explanation}</p>
-
-      {/* Visual bar — how far above reference */}
-      {req.value > 0 && (
-        <div className="ml-4 mt-2">
-          <div className="h-1 bg-border rounded-full overflow-hidden w-full">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                backgroundColor: f.dot,
-                width: `${Math.min(Math.max((req.value / (req.value * 1.5)) * 100, 5), 100)}%`,
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -109,13 +96,16 @@ function VerdictBanner({ feasibility, summary }: { feasibility: Feasibility; sum
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+const HORIZONS = [1, 3, 5, 10] as const;
+
 export default function WhatMustHappen({ company, financials, assumptions }: Props) {
   const profile = getCompanyProfile(company);
 
   const [targetInput, setTargetInput] = useState('');
   const [targetPrice, setTargetPrice] = useState<number | null>(null);
+  const [horizon, setHorizon] = useState<number>(assumptions.years);
 
-  // Compute on every target change
+  // Compute on every target change — for the selected horizon
   const result = useMemo(() => {
     if (!targetPrice || targetPrice <= company.currentPrice) return null;
     return computeTargetPath(
@@ -123,9 +113,27 @@ export default function WhatMustHappen({ company, financials, assumptions }: Pro
       profile.model,
       company,
       financials,
-      assumptions,
+      { ...assumptions, years: horizon },
       profile.defaultExitMultiple,
     );
+  }, [targetPrice, company, financials, assumptions, horizon, profile]);
+
+  // Same target across ALL horizons — shows how time changes difficulty
+  const horizonComparison = useMemo(() => {
+    if (!targetPrice || targetPrice <= company.currentPrice) return null;
+    const out: { years: number; requiredCAGR: number; overall: Feasibility }[] = [];
+    for (const h of HORIZONS) {
+      const r = computeTargetPath(
+        targetPrice,
+        profile.model,
+        company,
+        financials,
+        { ...assumptions, years: h },
+        profile.defaultExitMultiple,
+      );
+      if (r) out.push({ years: h, requiredCAGR: r.requiredCAGR, overall: r.overall });
+    }
+    return out;
   }, [targetPrice, company, financials, assumptions, profile]);
 
   function handleApply() {
@@ -135,8 +143,17 @@ export default function WhatMustHappen({ company, financials, assumptions }: Pro
 
   const isMarginApplicable = profile.model === 'pe';
 
+  if (!valuationReliability(company, financials).reliable) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
+        <p className="text-sm font-semibold text-warning mb-1">Not meaningful for this stock</p>
+        <p className="text-xs text-muted leading-relaxed">This company is loss-making or has negative net worth, so projected fair values, scenarios and target prices do not apply here. See the caution under the verdict above.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-4">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-3">
@@ -145,7 +162,10 @@ export default function WhatMustHappen({ company, financials, assumptions }: Pro
             <div className="w-6 h-6 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center">
               <Clock size={13} className="text-gold" />
             </div>
-            <h3 className="text-sm font-semibold text-primary">What Must Happen?</h3>
+            <h3 className="text-sm font-semibold text-primary flex items-center gap-1">
+              What Must Happen?
+              <Tooltip text="Pick a dream price (say 2× today). This card works backwards and tells you exactly what the company must achieve to get there — how fast it must grow, what margins it needs. Then it grades how realistic that is. Bigger dreams need more years." />
+            </h3>
           </div>
           <p className="text-[11px] text-muted mt-1">
             Set a target price → see exactly what needs to be true to get there
@@ -158,14 +178,31 @@ export default function WhatMustHappen({ company, financials, assumptions }: Pro
 
       {/* ── Target price input ── */}
       <div className="bg-border/20 rounded-xl p-4">
-        <p className="text-xs text-muted mb-3">
-          Current price:{' '}
-          <span className="text-primary font-mono font-semibold">
-            ₹{company.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </span>
-          {' '}· Horizon:{' '}
-          <span className="text-primary font-mono font-semibold">{assumptions.years} years</span>
-        </p>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <p className="text-xs text-muted">
+            Current price:{' '}
+            <span className="text-primary font-mono font-semibold">
+              ₹{company.currentPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+            </span>
+          </p>
+          {/* Horizon selector */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted uppercase tracking-wider">Horizon</span>
+            {HORIZONS.map(h => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold border transition-all ${
+                  horizon === h
+                    ? 'bg-gold text-terminal border-gold'
+                    : 'text-muted border-border hover:text-primary hover:border-gold/40'
+                }`}
+              >
+                {h}y
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Input row */}
         <div className="flex gap-2 mb-3">
@@ -238,6 +275,36 @@ export default function WhatMustHappen({ company, financials, assumptions }: Pro
               <p className="text-lg font-bold font-mono text-accent">{result.requiredCAGR.toFixed(1)}% p.a.</p>
             </div>
           </div>
+
+          {/* Time makes targets easier — same target across all horizons */}
+          {horizonComparison && (
+            <div className="bg-border/20 rounded-xl p-3">
+              <p className="text-[10px] text-muted uppercase tracking-wider mb-2">
+                Same target, more time → easier
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {horizonComparison.map(hc => {
+                  const f = FEASIBILITY[hc.overall];
+                  const active = hc.years === horizon;
+                  return (
+                    <button
+                      key={hc.years}
+                      onClick={() => setHorizon(hc.years)}
+                      className={`rounded-lg border p-2 text-center transition-all ${
+                        active ? `${f.bg} ${f.border}` : 'border-border/50 hover:border-border'
+                      }`}
+                    >
+                      <p className="text-[10px] text-muted font-mono">{hc.years} yrs</p>
+                      <p className={`text-sm font-bold font-mono ${f.color}`}>
+                        {hc.requiredCAGR.toFixed(0)}%
+                      </p>
+                      <p className={`text-[10px] font-semibold ${f.color}`}>{f.label}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Three requirements */}
           <div className="divide-y divide-border/30">

@@ -3,21 +3,21 @@
 import { useState } from 'react';
 import { Company, FinancialYear, ValuationAssumptions } from '@/lib/types';
 import MethodsDrawer from '@/components/MethodsDrawer';
-import { getSectorProfile, getCompanyProfile } from '@/lib/sectorModelMap';
+import { getCompanyProfile, ValuationModel } from '@/lib/sectorModelMap';
 import {
-  runPrimaryModel,
   peModel,
   pegModel,
   earningsYieldModel,
   impliedGrowthRate,
-  gordonGrowthPB,
   earningsQualityScore,
   evEbitdaModel,
   dcfModel,
   grahamNumber,
+  gordonGrowthPB,
   RISK_FREE_RATE,
 } from '@/lib/forecastUtils';
-import { BENCHMARKS, DEFAULT_BENCHMARK } from './IndustryBenchmarks';
+import { verdictKey } from '@/lib/verdict';
+import { valuationReliability } from '@/lib/valuationReliability';
 import { Clock } from '@/lib/icons';
 import Tooltip from '@/components/Tooltip';
 
@@ -28,6 +28,26 @@ interface ValuationEngineProps {
   compact?: boolean; // mobile: show only composite FV + stats, collapse method cards
 }
 
+// ─── Plain-English explanation for each method ───────────────────────────────
+const METHOD_PLAIN: Record<string, string> = {
+  'DCF':           'Adds up the cash this business will earn in future, converted to today\'s money.',
+  'Graham Number': 'A classic "safe price" check using profits and the company\'s net worth.',
+  'PE-Based':      'Estimates future profit, then applies the price the market usually pays for it.',
+  'EV/EBITDA':     'Values the whole business including its debt, then works out your share.',
+  'Gordon P/B':    'The institutional bank model: worth more than book value only if ROE beats the cost of equity.',
+};
+
+// ─── Sector-aware composite weights ──────────────────────────────────────────
+// Not all models deserve an equal vote. DCF means little for a bank;
+// Graham punishes asset-light compounders. Weights follow how institutional
+// desks actually value each sector type.
+const COMPOSITE_WEIGHTS: Record<ValuationModel, { dcf: number; graham: number; pe: number; ev: number; gordon: number }> = {
+  pe:        { dcf: 0.40, pe: 0.30, ev: 0.20, graham: 0.10, gordon: 0 },
+  ev_ebitda: { dcf: 0.35, ev: 0.40, pe: 0.15, graham: 0.10, gordon: 0 },
+  ev_sales:  { dcf: 0.35, ev: 0.30, pe: 0.20, graham: 0.15, gordon: 0 },
+  pb:        { gordon: 0.50, pe: 0.30, graham: 0.20, dcf: 0, ev: 0 }, // banks: book value, not cash flow
+};
+
 // ─── Method card ─────────────────────────────────────────────────────────────
 function MethodCard({
   method, desc, fairValue, currentPrice, marginOfSafety = 0, primary = false,
@@ -37,9 +57,10 @@ function MethodCard({
   const upside    = fairValue > 0 ? (fairValue / currentPrice - 1) * 100 : 0;
   const isUp      = upside >= 0;
   const buyPrice  = fairValue > 0 ? fairValue * (1 - marginOfSafety / 100) : 0;
-  const verdict   = upside >= 20 ? { label: 'UNDERVALUED', cls: 'text-gain bg-gain/10 border-gain/20' }
-                  : upside <= -15 ? { label: 'OVERVALUED',  cls: 'text-loss bg-loss/10 border-loss/20' }
-                  :                 { label: 'FAIR VALUE',  cls: 'text-gold bg-gold/10 border-gold/20' };
+  const vk        = verdictKey(upside);  // shared thresholds — see lib/verdict.ts
+  const verdict   = (vk === 'cheap' || vk === 'very-cheap') ? { label: 'Looks cheap',  cls: 'text-gain bg-gain/10 border-gain/20' }
+                  : (vk === 'expensive' || vk === 'very-expensive') ? { label: 'Looks pricey', cls: 'text-loss bg-loss/10 border-loss/20' }
+                  :                 { label: 'About right',  cls: 'text-gold bg-gold/10 border-gold/20' };
 
   return (
     <div className={`rounded-xl p-3 border transition-all ${
@@ -49,7 +70,7 @@ function MethodCard({
     }`}>
       <div className="flex items-start justify-between mb-1.5 gap-1">
         <span className={`text-[11px] font-semibold leading-tight ${primary ? 'text-gold' : 'text-muted'}`}>{method}</span>
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border tracking-wide flex-shrink-0 ${verdict.cls}`}>
+        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${verdict.cls}`}>
           {verdict.label}
         </span>
       </div>
@@ -66,7 +87,11 @@ function MethodCard({
           Buy ≤ ₹{buyPrice.toLocaleString('en-IN', { maximumFractionDigits: 0 })} ({marginOfSafety}% MoS)
         </p>
       )}
-      <p className="text-[10px] text-muted leading-relaxed line-clamp-3">{desc}</p>
+      {/* Simple mode sees the plain explanation; Analyst mode sees the formula */}
+      {METHOD_PLAIN[method] && (
+        <p className="simple-only text-[10px] text-primary/70 leading-relaxed mb-1">{METHOD_PLAIN[method]}</p>
+      )}
+      <p className="analyst-only text-[10px] text-muted leading-relaxed line-clamp-3 font-mono">{desc}</p>
     </div>
   );
 }
@@ -88,6 +113,14 @@ function StatPill({ label, value, color, sub }: {
 export default function ValuationEngine({ company, financials, assumptions, compact = false }: ValuationEngineProps) {
   const [showDetails, setShowDetails] = useState(false);
   if (!financials.length) return null;
+  if (!valuationReliability(company, financials).reliable) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
+        <p className="text-sm font-semibold text-warning mb-1">Not meaningful for this stock</p>
+        <p className="text-xs text-muted leading-relaxed">This company is loss-making or has negative net worth, so a fair value / multiple-based estimate does not apply here. See the caution under the verdict above.</p>
+      </div>
+    );
+  }
 
   const profile = getCompanyProfile(company);
   const model   = profile.model;
@@ -129,14 +162,31 @@ export default function ValuationEngine({ company, financials, assumptions, comp
   );
 
   // ── Keep legacy models for quality score + other signals ──────────────────
-  const bench = BENCHMARKS[company.sector] || DEFAULT_BENCHMARK;
-  const latest = financials[financials.length - 1];
   const pegResult = pegModel(financials, company);
   const eyResult  = earningsYieldModel(financials, company);
 
-  // ── Composite fair value — average of all 4 models ───────────────────────
-  const allFVs = [dcfResult.fairValue, grahamResult.fairValue, peResult.fairValue, evResult.fairValue].filter(v => v > 0);
-  const compositeFV   = allFVs.length > 0 ? allFVs.reduce((a, b) => a + b, 0) / allFVs.length : 0;
+  // ── Composite fair value — SECTOR-WEIGHTED, not a flat average ───────────
+  // Banks lean on Gordon Growth P/B; industrials on EV/EBITDA; the default
+  // book leans on DCF. Methods that fail (fv=0) drop out and weights renormalise.
+  const gordonResult = model === 'pb' ? gordonGrowthPB(company, assumptions.revenueGrowthRate) : null;
+  const w = COMPOSITE_WEIGHTS[model] ?? COMPOSITE_WEIGHTS.pe;
+  const weightedParts = [
+    { fv: dcfResult.fairValue,            weight: w.dcf },
+    { fv: grahamResult.fairValue,         weight: w.graham },
+    { fv: peResult.fairValue,             weight: w.pe },
+    { fv: evResult.fairValue,             weight: w.ev },
+    { fv: gordonResult?.fairValue ?? 0,   weight: w.gordon },
+  ].filter(p => p.fv > 0 && p.weight > 0
+      // Drop runaway-outlier methods (e.g. the P/E model misfiring on a bank, where
+      // "revenue × margin" isn't comparable) so one broken model can't blow the
+      // composite up to a haywire +X%.
+      && p.fv <= company.currentPrice * 5
+      && p.fv >= company.currentPrice * 0.2);
+  const weightSum   = weightedParts.reduce((a, p) => a + p.weight, 0);
+  const allFVs      = weightedParts.map(p => p.fv); // kept for method count label
+  const compositeFV = weightSum > 0
+    ? weightedParts.reduce((a, p) => a + p.fv * p.weight, 0) / weightSum
+    : 0;
   const compositeUp   = compositeFV > 0 ? (compositeFV / company.currentPrice - 1) * 100 : 0;
   const compositeCAGR = compositeFV > 0
     ? (Math.pow(Math.max(compositeFV / company.currentPrice, 0.001), 1 / assumptions.years) - 1) * 100
@@ -146,16 +196,18 @@ export default function ValuationEngine({ company, financials, assumptions, comp
   const buyPrice = compositeFV > 0 ? compositeFV * (1 - mos_input / 100) : 0;
   const mos = compositeFV > 0 ? ((compositeFV - company.currentPrice) / compositeFV) * 100 : 0;
 
-  // Implied growth baked into current price
-  const impliedG = impliedGrowthRate(financials, company, assumptions.netMarginAssumption, assumptions.exitPE, assumptions.years);
+  // Implied growth baked into current price — measured against a sector-normalized
+  // exit multiple (NOT the stock's own current PE, which made the answer circular ≈0%).
+  const impliedG = impliedGrowthRate(financials, company, assumptions.netMarginAssumption, assumptions.exitMultiple, assumptions.years);
 
   // Current PEG
   const currentPEG = pegResult.currentPEG;
 
-  // Verdict
+  // Verdict (shared thresholds — see lib/verdict.ts)
+  const compositeVK = verdictKey(compositeUp);
   const verdict =
-    compositeUp >= 30  ? { text: 'Potentially Undervalued', cls: 'text-gain bg-gain/10 border-gain/20' } :
-    compositeUp <= -20 ? { text: 'Potentially Overvalued',  cls: 'text-loss bg-loss/10 border-loss/20' } :
+    (compositeVK === 'cheap' || compositeVK === 'very-cheap')        ? { text: 'Potentially Undervalued', cls: 'text-gain bg-gain/10 border-gain/20' } :
+    (compositeVK === 'expensive' || compositeVK === 'very-expensive') ? { text: 'Potentially Overvalued',  cls: 'text-loss bg-loss/10 border-loss/20' } :
                          { text: 'Fairly Valued Range',     cls: 'text-gold bg-gold/10 border-gold/20' };
 
   // ── Model badge label ─────────────────────────────────────────────────────
@@ -168,7 +220,7 @@ export default function ValuationEngine({ company, financials, assumptions, comp
   // ── Compact mode (mobile) ─────────────────────────────────────────────────
   if (compact) {
     return (
-      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-3">
         {/* Title + verdict */}
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-primary">Valuation Engine</h3>
@@ -181,7 +233,7 @@ export default function ValuationEngine({ company, financials, assumptions, comp
         <div className="bg-border/20 rounded-xl p-4">
           <p className="text-xs text-muted mb-1">Composite Fair Value
             <span className="text-muted/60 ml-1">
-              {`(avg of ${allFVs.length} methods)`}
+              {`(sector-weighted, ${allFVs.length} methods)`}
             </span>
           </p>
           <div className="flex items-end gap-3 flex-wrap">
@@ -192,7 +244,7 @@ export default function ValuationEngine({ company, financials, assumptions, comp
               <p className={`text-xl font-bold font-mono leading-none ${compositeUp >= 0 ? 'text-gain' : 'text-loss'}`}>
                 {compositeUp >= 0 ? '+' : ''}{compositeUp.toFixed(1)}%
               </p>
-              <p className={`text-xs font-mono mt-0.5 ${compositeCAGR >= 15 ? 'text-gain' : compositeCAGR >= 0 ? 'text-gold' : 'text-loss'}`}>
+              <p className={`text-xs font-mono mt-0.5 ${compositeCAGR >= 15 ? 'text-gain' : compositeCAGR >= 0 ? 'text-warning' : 'text-loss'}`}>
                 {compositeCAGR.toFixed(1)}% CAGR
               </p>
             </div>
@@ -207,13 +259,13 @@ export default function ValuationEngine({ company, financials, assumptions, comp
           <StatPill
             label="Margin of Safety"
             value={`${mos.toFixed(1)}%`}
-            color={mos >= 25 ? 'text-gain' : mos >= 0 ? 'text-gold' : 'text-loss'}
+            color={mos >= 25 ? 'text-gain' : mos >= 0 ? 'text-warning' : 'text-loss'}
             sub={mos >= 25 ? 'Good buffer' : mos >= 0 ? 'Thin buffer' : 'Overpriced'}
           />
           <StatPill
             label="PEG Ratio"
             value={currentPEG > 0 ? currentPEG.toFixed(2) : '—'}
-            color={currentPEG < 1 ? 'text-gain' : currentPEG < 2 ? 'text-gold' : 'text-loss'}
+            color={currentPEG < 1 ? 'text-gain' : currentPEG < 2 ? 'text-warning' : 'text-loss'}
             sub={currentPEG < 1 ? '< 1 = cheap' : currentPEG < 2 ? '1–2 = fair' : '> 2 = pricey'}
           />
           <StatPill
@@ -242,7 +294,10 @@ export default function ValuationEngine({ company, financials, assumptions, comp
         <MethodsDrawer open={showDetails} onClose={() => setShowDetails(false)}>
           {/* 4 Valuation Models */}
           <div className="grid grid-cols-2 gap-3">
-            <MethodCard method="DCF" desc={dcfResult.desc} fairValue={dcfResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} primary />
+            {gordonResult && gordonResult.isValid && (
+              <MethodCard method="Gordon P/B" desc={gordonResult.desc} fairValue={gordonResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} primary />
+            )}
+            <MethodCard method="DCF" desc={dcfResult.desc} fairValue={dcfResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} primary={model !== 'pb'} />
             <MethodCard method="Graham Number" desc={grahamResult.desc} fairValue={grahamResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} />
             <MethodCard method="PE-Based" desc={peResult.desc} fairValue={peResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} />
             <MethodCard method="EV/EBITDA" desc={evResult.desc} fairValue={evResult.fairValue} currentPrice={company.currentPrice} marginOfSafety={mos_input} />
@@ -264,7 +319,7 @@ export default function ValuationEngine({ company, financials, assumptions, comp
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 space-y-4">
 
       {/* ── Header ── */}
       <div className="space-y-2">
@@ -293,7 +348,8 @@ export default function ValuationEngine({ company, financials, assumptions, comp
             {quality.label}
             <Tooltip text={quality.breakdown} position="bottom" />
           </span>
-          <span className="text-[10px] font-bold text-gold bg-gold/10 border border-gold/20 px-2 py-0.5 rounded font-mono">
+          {/* Badge diet: model name is context, not status — muted, analyst-only */}
+          <span className="analyst-only text-[10px] text-muted border border-border px-2 py-0.5 rounded font-mono">
             {modelBadge}
           </span>
         </div>
@@ -305,7 +361,7 @@ export default function ValuationEngine({ company, financials, assumptions, comp
           <p className="text-xs text-muted mb-1">
             Composite Fair Value
             <span className="text-muted/60 ml-1">
-              {`(avg of ${allFVs.length} methods)`}
+              {`(sector-weighted, ${allFVs.length} methods)`}
             </span>
           </p>
           <p className="text-2xl font-bold font-mono text-gold">
@@ -331,22 +387,32 @@ export default function ValuationEngine({ company, financials, assumptions, comp
           </div>
           <div>
             <p className="text-xs text-muted">Expected CAGR</p>
-            <p className={`text-sm font-bold font-mono ${compositeCAGR >= 15 ? 'text-gain' : compositeCAGR >= 0 ? 'text-gold' : 'text-loss'}`}>
+            <p className={`text-sm font-bold font-mono ${compositeCAGR >= 15 ? 'text-gain' : compositeCAGR >= 0 ? 'text-warning' : 'text-loss'}`}>
               {compositeCAGR.toFixed(1)}% p.a.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── 4 Valuation Models — always shown ── */}
+      {/* ── Valuation Models — always shown; Gordon P/B joins for banks ── */}
       <div className="grid grid-cols-2 gap-3">
+        {gordonResult && gordonResult.isValid && (
+          <MethodCard
+            method="Gordon P/B"
+            desc={gordonResult.desc}
+            fairValue={gordonResult.fairValue}
+            currentPrice={company.currentPrice}
+            marginOfSafety={mos_input}
+            primary={true}
+          />
+        )}
         <MethodCard
           method="DCF"
           desc={dcfResult.desc}
           fairValue={dcfResult.fairValue}
           currentPrice={company.currentPrice}
           marginOfSafety={mos_input}
-          primary={true}
+          primary={model !== 'pb'}
         />
         <MethodCard
           method="Graham Number"
@@ -404,19 +470,19 @@ export default function ValuationEngine({ company, financials, assumptions, comp
         <StatPill
           label="Margin of Safety"
           value={`${mos.toFixed(1)}%`}
-          color={mos >= 25 ? 'text-gain' : mos >= 0 ? 'text-gold' : 'text-loss'}
+          color={mos >= 25 ? 'text-gain' : mos >= 0 ? 'text-warning' : 'text-loss'}
           sub={mos >= 25 ? 'Good buffer' : mos >= 0 ? 'Thin buffer' : 'Overpriced'}
         />
         <StatPill
           label="Implied Growth"
           value={`${impliedG.toFixed(1)}%`}
           color="text-accent"
-          sub="Market expects"
+          sub="Already in the price"
         />
         <StatPill
           label="PEG Ratio"
           value={currentPEG > 0 ? currentPEG.toFixed(2) : '—'}
-          color={currentPEG < 1 ? 'text-gain' : currentPEG < 2 ? 'text-gold' : 'text-loss'}
+          color={currentPEG < 1 ? 'text-gain' : currentPEG < 2 ? 'text-warning' : 'text-loss'}
           sub={currentPEG < 1 ? '< 1 = cheap' : currentPEG < 2 ? '1–2 = fair' : '> 2 = pricey'}
         />
         <StatPill
@@ -427,19 +493,27 @@ export default function ValuationEngine({ company, financials, assumptions, comp
         />
       </div>
 
-      {/* ── Legend ── */}
+      {/* ── Legend — plain English ── */}
       <div className="text-[11px] text-muted border-t border-border pt-3 space-y-1 leading-relaxed">
         <p>
           <span className="text-primary font-medium">DCF</span>
-          {' '}— primary model for {profile.sectorLabel} sector
-          {model === 'pb' && '; banks valued on book value, not earnings'}
-          {model === 'ev_ebitda' && '; removes D&A distortion in asset-heavy businesses'}
-          {model === 'ev_sales' && '; revenue multiple for pre-profit / high-growth companies'}
+          {' '}— the lead model for the {profile.sectorLabel} sector
+          {model === 'pb' && '; banks are valued on their net worth (book value), not profits'}
+          {model === 'ev_ebitda' && '; better for asset-heavy businesses where depreciation hides true profit'}
+          {model === 'ev_sales' && '; uses sales instead of profit — for fast growers not yet profitable'}
         </p>
-        <p><span className="text-primary font-medium">PEG Ratio</span> — if EPS grows 20%/yr, fair P/E ≈ 20x (PEG = 1)</p>
-        <p><span className="text-primary font-medium">Earnings Yield</span> — compares stock earnings vs Indian G-Sec rate ({RISK_FREE_RATE}%)</p>
-        <p><span className="text-primary font-medium">Earnings Quality</span> — scores 0-100: profit consistency + margin stability + revenue momentum → adjusts exit multiple</p>
-        <p><span className="text-primary font-medium">Composite</span> — {model === 'pb' ? '50% Gordon Growth + 50% P/B — banks weighted toward institutional model' : 'avg of all valid methods; reduces single-model bias'}</p>
+        <p><span className="text-primary font-medium">Margin of Safety</span> — the discount between price and fair value. Bigger = more room to be wrong.</p>
+        <p><span className="text-primary font-medium">Implied Growth</span> — the growth today&apos;s price already assumes. If the company can beat it, the stock is cheap.</p>
+        <p><span className="text-primary font-medium">PEG Ratio</span> — P/E vs growth. Under 1 = paying less than the growth is worth. Over 2 = paying a lot.</p>
+        <p><span className="text-primary font-medium">Earnings Yield</span> — profit you get per ₹100 of stock. Should beat the {RISK_FREE_RATE}% you&apos;d earn risk-free in G-Secs.</p>
+        <p><span className="text-primary font-medium">Quality Score</span> — 0–100 for steady profits, stable margins and growing sales. High quality earns a higher exit multiple.</p>
+        <p><span className="text-primary font-medium">Composite</span> — sector-weighted blend: {
+          model === 'pb'        ? 'Gordon P/B 50% · PE 30% · Graham 20% (banks are valued on book, not cash flow)' :
+          model === 'ev_ebitda' ? 'EV/EBITDA 40% · DCF 35% · PE 15% · Graham 10%' :
+          model === 'ev_sales'  ? 'DCF 35% · EV 30% · PE 20% · Graham 15%' :
+                                  'DCF 40% · PE 30% · EV 20% · Graham 10%'
+        }. Failed methods drop out automatically.</p>
+        <p><span className="text-primary font-medium">Growth fade</span> — every projection slows your growth rate toward 6% (≈ India GDP) by the final year. No company compounds at 25% forever.</p>
       </div>
     </div>
   );

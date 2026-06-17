@@ -50,6 +50,22 @@ export default function ChartsPage() {
     return () => clearTimeout(tRef.current);
   }, [q]);
 
+  async function kiteLogin() {
+    try {
+      const r = await fetch("/api/charts/kite_login");
+      const j = await r.json();
+      if (j.url) {
+        // Full-page redirect to Zerodha. After login the engine saves the
+        // token and bounces back to /charts automatically.
+        window.location.href = j.url;
+      } else {
+        alert("Couldn't start Kite login — make sure the platform is running.");
+      }
+    } catch {
+      alert("Couldn't reach the Kite engine. Is the platform running?");
+    }
+  }
+
   async function analyze(symbol: string) {
     if (!symbol) return;
     setLoading(true); setEngineDown(false); setNeedLogin(null); setNotFound(null); setSuggestions([]); setQ(symbol);
@@ -151,19 +167,21 @@ export default function ChartsPage() {
             </div>
           </div>
           <p className="mt-4 text-sm text-muted">
-            Zerodha expires the Kite login every morning for security, so charts need a quick daily sign-in (about 20 seconds).
+            Click below, log in with your Zerodha ID + PIN, and you’ll be brought right back here with live data unlocked.
           </p>
-          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-muted">
-            <li>Double-click <code className="rounded bg-terminal/60 px-1.5 py-0.5 text-primary">Get Kite Token</code> in your Robu Terminal folder.</li>
-            <li>Log in with your Zerodha ID + PIN.</li>
-            <li>Come back here and hit <span className="text-primary">Retry</span>.</li>
-          </ol>
-          <button
-            onClick={() => analyze(needLogin)}
-            className="ds-btn-primary mt-5 inline-flex items-center gap-2"
-          >
-            <RefreshCw size={15} /> Retry {needLogin}
-          </button>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button onClick={kiteLogin} className="ds-btn-primary inline-flex items-center gap-2">
+              <KeyRound size={15} /> Log in to Kite
+            </button>
+            <button onClick={() => analyze(needLogin)} className="ds-btn-ghost inline-flex items-center gap-2">
+              <RefreshCw size={15} /> Retry
+            </button>
+          </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-muted">
+            First time only — in your Kite app at developers.kite.trade, set the Redirect URL to{" "}
+            <code className="rounded bg-terminal/60 px-1 py-0.5 text-primary">http://127.0.0.1:8010</code>{" "}
+            so login returns here automatically.
+          </p>
         </div>
       )}
 

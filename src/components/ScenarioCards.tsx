@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
-import { ValuationAssumptions, ScenarioResult } from '@/lib/types';
+import { ValuationAssumptions } from '@/lib/types';
 import { FinancialYear } from '@/lib/types';
 import { Company } from '@/lib/types';
-import { getSectorProfile, getCompanyProfile, getDynamicDeltas } from '@/lib/sectorModelMap';
+import { getCompanyProfile, getDynamicDeltas } from '@/lib/sectorModelMap';
 import { runPrimaryModel, revenueVolatility, earningsQualityScore } from '@/lib/forecastUtils';
+import { buildScenarioConfigs } from '@/lib/scenarioEngine';
+import { valuationReliability } from '@/lib/valuationReliability';
 import Tooltip from '@/components/Tooltip';
 
 interface ScenarioCardsProps {
@@ -29,50 +33,29 @@ interface Scenario {
 }
 
 export default function ScenarioCards({ financials, assumptions, currentPrice, company, compact = false }: ScenarioCardsProps) {
+  const [horizon, setHorizon] = useState<number>(assumptions.years);
   if (!financials.length) return null;
+  if (!valuationReliability(company, financials).reliable) {
+    return (
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
+        <p className="text-sm font-semibold text-warning mb-1">Not meaningful for this stock</p>
+        <p className="text-xs text-muted leading-relaxed">This company is loss-making or has negative net worth, so projected fair values, scenarios and target prices do not apply here. See the caution under the verdict above.</p>
+      </div>
+    );
+  }
 
   const profile  = getCompanyProfile(company);
-  const years    = assumptions.years;
+  const years    = horizon;
 
-  // ── Intelligence upgrade: company-specific volatility-driven deltas ───────
-  // sigma = std deviation of this company's historical revenue growth.
-  // A bank with σ=3% gets tight spreads; a steel co with σ=22% gets wide ones.
-  const sigma    = revenueVolatility(financials);
-  const deltas   = getDynamicDeltas(profile, sigma);
+  // Display-only context (header badges) — config math lives in the shared engine
+  const sigma   = revenueVolatility(financials);
+  const deltas  = getDynamicDeltas(profile, sigma);
+  const quality = earningsQualityScore(financials);
 
-  // ── Earnings quality: high-quality earners get a slight multiple premium ──
-  const quality  = earningsQualityScore(financials);
-  // Apply quality multiplier to exit multiple in Bear and Bull only
-  // (Base stays exactly as user set it, Bear/Bull get quality-adjusted)
-  const qualAdjMultiple = assumptions.exitMultiple * quality.multiplier;
-
-  // ── Build three scenario configs ─────────────────────────────────────────
-  const configs: Omit<Scenario, 'fairValue' | 'upside' | 'cagr'>[] = [
-    {
-      name: 'Bear',
-      probability: 25,
-      color: '#EF4444',
-      growthRate:       Math.max(assumptions.revenueGrowthRate + deltas.bearGrowthDelta,   1),
-      marginAssumption: Math.max(assumptions.netMarginAssumption + deltas.bearMarginDelta, 1),
-      exitMultiple:     Math.max(qualAdjMultiple + deltas.bearMultipleDelta, profile.exitMultipleMin),
-    },
-    {
-      name: 'Base',
-      probability: 50,
-      color: '#3b82f6',
-      growthRate:       assumptions.revenueGrowthRate,
-      marginAssumption: assumptions.netMarginAssumption,
-      exitMultiple:     assumptions.exitMultiple,
-    },
-    {
-      name: 'Bull',
-      probability: 25,
-      color: '#4ade80',
-      growthRate:       assumptions.revenueGrowthRate + deltas.bullGrowthDelta,
-      marginAssumption: assumptions.netMarginAssumption + deltas.bullMarginDelta,
-      exitMultiple:     Math.min(qualAdjMultiple + deltas.bullMultipleDelta, profile.exitMultipleMax),
-    },
-  ];
+  // ── Shared scenario engine — identical Bear/Base/Bull everywhere ──────────
+  // (cards, ₹1L wealth table, and the PDF report can never disagree)
+  const configs: Omit<Scenario, 'fairValue' | 'upside' | 'cagr'>[] =
+    buildScenarioConfigs(company, financials, assumptions);
 
   // ── Run sector-appropriate model for each scenario ────────────────────────
   const scenarios: Scenario[] = configs.map(cfg => {
@@ -102,7 +85,7 @@ export default function ScenarioCards({ financials, assumptions, currentPrice, c
   // ── Compact mode: mobile horizontal chips ────────────────────────────────
   if (compact) {
     return (
-      <div className="bg-card border border-border rounded-xl p-4">
+      <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-primary">3 Scenarios</h3>
           <span className="text-[10px] text-muted font-mono">
@@ -123,7 +106,7 @@ export default function ScenarioCards({ financials, assumptions, currentPrice, c
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                   <span className="text-xs font-bold" style={{ color: s.color }}>{s.name}</span>
-                  <span className="text-[9px] font-bold px-1 rounded ml-auto" style={{ color: s.color, backgroundColor: `${s.color}20` }}>
+                  <span className="text-[10px] font-bold px-1 rounded ml-auto" style={{ color: s.color, backgroundColor: `${s.color}20` }}>
                     {s.probability}%
                   </span>
                 </div>
@@ -145,17 +128,20 @@ export default function ScenarioCards({ financials, assumptions, currentPrice, c
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6">
 
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-4 gap-2">
         <div>
           <h3 className="text-sm font-semibold text-primary">Scenario Analysis</h3>
           <p className="text-[11px] text-muted mt-0.5">
+            Bear = things go wrong · Base = your inputs · Bull = things go right
+          </p>
+          <p className="analyst-only text-[11px] text-muted mt-0.5">
             Model: <span className="text-gold font-medium">{profile.exitMultipleLabel}</span>
             {' · '}
             {deltas.isCompanySpecific
-              ? <span className="inline-flex items-center gap-0.5">spread from σ={sigma.toFixed(1)}%<Tooltip text={`Historical revenue σ = ${sigma.toFixed(1)}% — measures how volatile this company's revenue has been`} /></span>
+              ? <span className="inline-flex items-center gap-0.5">spread from σ={sigma.toFixed(1)}%<Tooltip text={`σ = how bumpy this company's revenue has been historically (${sigma.toFixed(1)}%). Steadier revenue → tighter Bear/Bull range`} /></span>
               : 'sector-template spread'}
           </p>
           {/* Earnings quality badge */}
@@ -186,6 +172,17 @@ export default function ScenarioCards({ financials, assumptions, currentPrice, c
       </div>
 
       {/* ── Three scenario cards ── */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[11px] text-muted">Value it over</span>
+        <div className="flex gap-1 bg-border/40 rounded-full p-0.5">
+          {[1, 3, 5, 10].map(y => (
+            <button key={y} onClick={() => setHorizon(y)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all ${horizon === y ? 'bg-gold text-card shadow-sm' : 'text-muted hover:text-primary'}`}>
+              {y}yr
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {scenarios.map((s, i) => {
           const isPositive = s.upside >= 0;
@@ -262,7 +259,7 @@ export default function ScenarioCards({ financials, assumptions, currentPrice, c
                 <motion.div
                   className="h-full rounded-full"
                   initial={{ width: 0 }}
-                  animate={{ width: `${s.probability * 2}%` }}
+                  animate={{ width: `${Math.min(s.probability * 2, 100)}%` }}
                   transition={{ duration: 0.5, delay: i * 0.07 + 0.2, ease: 'easeOut' }}
                   style={{ backgroundColor: s.color }}
                 />

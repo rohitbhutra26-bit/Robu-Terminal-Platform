@@ -27,9 +27,10 @@ const VERDICT_CONFIG: Record<string, {
 }> = {
   'Strong Buy': { label: 'Great opportunity',  Icon: TrendingUp,    color: 'text-gain', bg: 'bg-gain/10', border: 'border-gain/25' },
   'Buy':        { label: 'Looks attractive',   Icon: ThumbsUp,      color: 'text-gain', bg: 'bg-gain/10', border: 'border-gain/25' },
-  'Accumulate': { label: 'Worth watching',     Icon: Eye,           color: 'text-gold', bg: 'bg-gold/10', border: 'border-gold/25' },
-  'Hold':       { label: 'Hold what you have', Icon: PauseCircle,   color: 'text-gold', bg: 'bg-gold/10', border: 'border-gold/25' },
+  'Accumulate': { label: 'Worth watching',     Icon: Eye,           color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/25' },
+  'Hold':       { label: 'Hold what you have', Icon: PauseCircle,   color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/25' },
   'Reduce':     { label: 'Consider trimming',  Icon: AlertTriangle, color: 'text-loss', bg: 'bg-loss/10', border: 'border-loss/25' },
+  'Sell':       { label: 'Time to step back',  Icon: ShieldAlert,   color: 'text-loss', bg: 'bg-loss/10', border: 'border-loss/25' },
   'Avoid':      { label: 'Risky right now',    Icon: ShieldAlert,   color: 'text-loss', bg: 'bg-loss/10', border: 'border-loss/25' },
 };
 
@@ -72,6 +73,8 @@ export default function AIOverview({ company, financials = [] }: AIOverviewProps
             bull:         data.bull,
             bear:         data.bear,
             verdictColor: '',  // driven by VERDICT_CONFIG
+            thesis:       data.thesis ?? [],
+            watch:        data.watch ?? [],
           };
           aiCache.set(company.symbol, upgraded);
           setAiInsight(upgraded);
@@ -93,7 +96,7 @@ export default function AIOverview({ company, financials = [] }: AIOverviewProps
   const cfg     = VERDICT_CONFIG[insight.verdict] ?? VERDICT_CONFIG['Hold'];
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-card border border-border rounded-3xl p-5 sm:p-6 flex flex-col gap-3">
 
       {/* Header */}
       <div className="flex items-center gap-2">
@@ -118,7 +121,7 @@ export default function AIOverview({ company, financials = [] }: AIOverviewProps
 
         {/* Gemini badge once loaded */}
         {isAI && !aiLoading && (
-          <span className="text-[9px] px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded text-accent font-mono flex-shrink-0">
+          <span className="text-[10px] px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded text-accent font-mono flex-shrink-0">
             Gemini
           </span>
         )}
@@ -169,7 +172,7 @@ export default function AIOverview({ company, financials = [] }: AIOverviewProps
       </div>
 
       {/* Footer */}
-      <p className="text-[10px] text-muted/40 text-center">
+      <p className="text-[10px] text-muted/70 text-center">
         Based on {financials.length} years of data · always do your own research
       </p>
     </div>

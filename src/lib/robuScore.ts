@@ -13,6 +13,7 @@
  */
 
 import { Company, FinancialYear } from './types';
+import { getCompanyProfile } from './sectorModelMap';
 
 export interface DimensionScore {
   name: string;
@@ -54,11 +55,11 @@ function label(score: number): string {
   return 'Poor';
 }
 function color(score: number): string {
-  if (score >= 80) return 'text-gain';
-  if (score >= 65) return 'text-accent';
-  if (score >= 50) return 'text-gold';
-  if (score >= 35) return 'text-warning';
-  return 'text-loss';
+  // Clean traffic-light ramp matching the app's good/okay/weak legend.
+  // No brand (burgundy) colours here — those don't read as good/bad.
+  if (score >= 65) return 'text-gain';      // Strong / Exceptional → green
+  if (score >= 50) return 'text-warning';   // Average → amber
+  return 'text-loss';                        // Weak / Poor → red
 }
 
 // ─── Dimension 1: ROIIC ──────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ function color(score: number): string {
 function scoreROIIC(fin: FinancialYear[]): DimensionScore {
   const full = fin.filter(f => f.ebitda > 0 && f.revenue > 0);
   if (full.length < 3) return { name: 'Capital Efficiency', score: 50, label: 'Average',
-    insight: 'Insufficient data', detail: 'Need 3+ years of data', color: 'text-gold' };
+    insight: 'Insufficient data', detail: 'Need 3+ years of data', color: 'text-warning' };
 
   // Incremental EBITDA margins over 3-year windows
   const incMargins: number[] = [];
@@ -118,7 +119,7 @@ function scoreROIIC(fin: FinancialYear[]): DimensionScore {
 function scoreEarningsQuality(fin: FinancialYear[]): DimensionScore {
   const withOCF = fin.filter(f => (f.ocf ?? 0) > 0 && f.pat > 0);
   if (withOCF.length < 2) return { name: 'Earnings Quality', score: 50, label: 'Average',
-    insight: 'Limited cash flow data available', detail: 'OCF data needed for quality scoring', color: 'text-gold' };
+    insight: 'Limited cash flow data available', detail: 'OCF data needed for quality scoring', color: 'text-warning' };
 
   const conversions = withOCF.map(f => f.ocf! / f.pat);
   const avgConversion = avg(conversions);
@@ -164,7 +165,7 @@ function scoreEarningsQuality(fin: FinancialYear[]): DimensionScore {
 function scoreExecution(fin: FinancialYear[]): DimensionScore {
   const full = fin.filter(f => f.revenue > 0 && f.pat > 0 && f.revenueGrowth !== 0);
   if (full.length < 4) return { name: 'Management Execution', score: 50, label: 'Average',
-    insight: 'Insufficient history to score execution', detail: 'Need 4+ years of data', color: 'text-gold' };
+    insight: 'Insufficient history to score execution', detail: 'Need 4+ years of data', color: 'text-warning' };
 
   // Revenue growth consistency (lower stddev = more predictable)
   const revGrowths  = full.map(f => f.revenueGrowth).filter(g => Math.abs(g) < 100);
@@ -206,7 +207,7 @@ function scoreExecution(fin: FinancialYear[]): DimensionScore {
 function scoreMoat(fin: FinancialYear[], company: Company): DimensionScore {
   const full = fin.filter(f => f.ebitdaMargin > 0);
   if (full.length < 4) return { name: 'Moat Durability', score: 50, label: 'Average',
-    insight: 'Insufficient data for moat analysis', detail: 'Need 4+ years', color: 'text-gold' };
+    insight: 'Insufficient data for moat analysis', detail: 'Need 4+ years', color: 'text-warning' };
 
   const margins = full.map(f => f.ebitdaMargin);
   const avgMargin = avg(margins);
@@ -272,7 +273,7 @@ function scorePriceReality(fin: FinancialYear[], company: Company): DimensionSco
   const full = fin.filter(f => f.eps > 0);
   if (full.length < 3 || !company.pe || company.pe <= 0) {
     return { name: 'Price Reality', score: 50, label: 'Average',
-      insight: 'Insufficient data for implied growth analysis', detail: '', color: 'text-gold' };
+      insight: 'Insufficient data for implied growth analysis', detail: '', color: 'text-warning' };
   }
 
   // Implied growth rate = what EPS growth rate justifies current PE
@@ -355,12 +356,18 @@ export function computeROBUScore(
     : 'Capital destroying — avoid';
 
   // Buy zone: fair value from Price Reality × (1 - quality discount)
-  const qualityMultiplier = total >= 75 ? 1.0 : total >= 55 ? 0.85 : 0.70;
-  const impliedFairPE = (company.eps ?? 0) > 0
-    ? company.currentPrice / (company.eps ?? 1) * qualityMultiplier
-    : null;
-  const buyZone = impliedFairPE && company.eps
-    ? Math.round(impliedFairPE * (company.eps ?? 0) * 0.80) : null;
+  // Anchor to a SECTOR-NORMALIZED P/E scaled by quality - NOT the current price.
+  // (The old formula was currentPrice x quality x 0.8: the EPS cancelled, so it was
+  // just a fixed discount to today's price, not a fair value.)
+  const eps = company.eps ?? 0;
+  const profile = getCompanyProfile(company);
+  const baselinePE = profile.model === 'pe' && profile.defaultExitMultiple > 0
+    ? profile.defaultExitMultiple : 18;
+  const qualityFactor = total >= 75 ? 1.15 : total >= 65 ? 1.0 : total >= 50 ? 0.85
+                      : total >= 35 ? 0.65 : 0.45;
+  const justifiedPE = baselinePE * qualityFactor;
+  const fairValuePerShare = eps > 0 ? justifiedPE * eps : null;
+  const buyZone = fairValuePerShare ? Math.round(fairValuePerShare * 0.80) : null; // 20% MoS
 
   // Flags
   const sorted = [...dimensions].sort((a, b) => b.score - a.score);
